@@ -139,18 +139,23 @@ navigate() {
 
     if [[ "$date_arg" == "today" ]]; then
         target_date=$(date +%Y-%m-%d)
-    elif [[ "$date_arg" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
-        # Full date: 2025-03-15
-        target_date="$date_arg"
-    elif [[ "$date_arg" =~ ^[0-9]{2}-[0-9]{2}$ ]]; then
-        # Month-Day: 12-25
+    elif [[ "$date_arg" =~ ^[0-9]{8}$ ]]; then
+        # Full date: 20250315 (YYYYMMDD)
+        local yyyy="${date_arg:0:4}"
+        local mm="${date_arg:4:2}"
+        local dd="${date_arg:6:2}"
+        target_date="$yyyy-$mm-$dd"
+    elif [[ "$date_arg" =~ ^[0-9]{4}$ ]]; then
+        # Month-Day: 1225 (MMDD)
+        local mm="${date_arg:0:2}"
+        local dd="${date_arg:2:2}"
         local year
         year=$(date +%Y)
-        target_date="$year-$date_arg"
+        target_date="$year-$mm-$dd"
     else
         echo "Error: Invalid date format"
-        echo "Usage: bj date today | bj date MM-DD | bj date YYYY-MM-DD"
-        echo "Examples: bj date today, bj date 12-25, bj date 2025-12-25"
+        echo "Usage: bj date today | bj date MMDD | bj date YYYYMMDD"
+        echo "Examples: bj date today, bj date 1225, bj date 20251225"
         exit 1
     fi
 
@@ -249,17 +254,22 @@ schedule() {
     local target_date
 
     # Parse date argument
-    if [[ "$date_arg" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
-        # Full date: 2025-03-15
-        target_date="$date_arg"
-    elif [[ "$date_arg" =~ ^[0-9]{2}-[0-9]{2}$ ]]; then
-        # Month-Day: 12-25
+    if [[ "$date_arg" =~ ^[0-9]{8}$ ]]; then
+        # Full date: 20250315 (YYYYMMDD)
+        local yyyy="${date_arg:0:4}"
+        local mm="${date_arg:4:2}"
+        local dd="${date_arg:6:2}"
+        target_date="$yyyy-$mm-$dd"
+    elif [[ "$date_arg" =~ ^[0-9]{4}$ ]]; then
+        # Month-Day: 1225 (MMDD)
+        local mm="${date_arg:0:2}"
+        local dd="${date_arg:2:2}"
         local year
         year=$(date +%Y)
-        target_date="$year-$date_arg"
+        target_date="$year-$mm-$dd"
     else
         echo "Error: Invalid date format"
-        echo "Usage: bj schedule [n] [MM-DD | YYYY-MM-DD]"
+        echo "Usage: bj schedule [n] [MMDD | YYYYMMDD]"
         exit 1
     fi
 
@@ -336,9 +346,9 @@ EXAMPLES:
   bj o Meeting at 3pm # Add event
   bj x 1              # Mark task 1 as done
   bj del 3            # Delete task 3
-  bj date 12-25       # Go to Dec 25
+  bj date 1225        # Go to Dec 25
   bj migrate          # Migrate to tomorrow
-  bj schedule 2 12-25 # Schedule task 2 to Dec 25
+  bj schedule 2 1225  # Schedule task 2 to Dec 25
 EOF
 }
 
@@ -363,7 +373,7 @@ case "$1" in
         ;;
     date)
         if [[ $# -ne 2 ]]; then
-            echo "Usage: bj date today | bj date MM-DD | bj date YYYY-MM-DD"
+            echo "Usage: bj date today | bj date MMDD | bj date YYYYMMDD"
             exit 1
         fi
         navigate "$2"
@@ -379,7 +389,7 @@ case "$1" in
         ;;
     schedule)
         if [[ $# -ne 3 ]]; then
-            echo "Usage: bj schedule [n] [MM-DD | YYYY-MM-DD]"
+            echo "Usage: bj schedule [n] [MMDD | YYYYMMDD]"
             exit 1
         fi
         schedule "$2" "$3"

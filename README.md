@@ -17,7 +17,7 @@ bj Buy groceries              # Add a task
 bj                            # List all tasks
 bj x 1                        # Mark task 1 as done
 bj del 2                      # Delete task 2
-bj schedule 3 12-25           # Schedule task 3 to Dec 25
+bj schedule 3 1225            # Schedule task 3 to Dec 25
 bj migrate                    # Move incomplete tasks to tomorrow
 bj date today                 # Go back to today
 ```
@@ -75,8 +75,8 @@ bj date [date]                # Go to specific date
 **Examples:**
 ```bash
 bj date today                 # Back to today
-bj date 12-25                 # Go to December 25 of current year
-bj date 2025-03-15            # Go to March 15, 2025
+bj date 1225                  # Go to December 25 of current year
+bj date 20250315              # Go to March 15, 2025
 ```
 
 ### Migrate Tasks
@@ -100,8 +100,8 @@ bj schedule [n] [date]        # Schedule task n to specific date
 
 **Examples:**
 ```bash
-bj schedule 1 12-25           # Schedule task 1 to Dec 25
-bj schedule 3 2025-03-15      # Schedule task 3 to Mar 15, 2025
+bj schedule 1 1225            # Schedule task 1 to Dec 25
+bj schedule 3 20250315        # Schedule task 3 to Mar 15, 2025
 ```
 
 When you schedule a task:
