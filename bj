@@ -59,7 +59,8 @@ list() {
     if [[ -z "$entries" ]]; then
         echo "No tasks."
     else
-        echo "$entries"
+        # Strip leading spaces for consistent alignment
+        echo "$entries" | sed 's/^[[:space:]]*//'
     fi
 }
 
@@ -96,8 +97,8 @@ change() {
     local actual_line
     actual_line=$(echo "$line_nums" | sed -n "${num}p")
 
-    # Change the bullet
-    sed_inplace "${actual_line}s/^[[:space:]]*[.!xoaw><-]/  $new_bullet/" "$FILE"
+    # Change the bullet - strip leading spaces and ensure consistent format
+    sed_inplace "${actual_line}s/^[[:space:]]*[.!xoaw><-]/$new_bullet/" "$FILE"
 
     local new_line
     new_line=$(sed -n "${actual_line}p" "$FILE")
@@ -186,7 +187,8 @@ navigate() {
     if [[ -z "$entries" ]]; then
         echo "No tasks."
     else
-        echo "$entries"
+        # Strip leading spaces for consistent alignment
+        echo "$entries" | sed 's/^[[:space:]]*//'
     fi
 }
 
@@ -238,7 +240,7 @@ migrate() {
 
     # Change bullets to > (migrated) and append to target file
     local migrated
-    migrated=$(echo "$incomplete" | sed 's/^[[:space:]]*[.!w<]/  >/')
+    migrated=$(echo "$incomplete" | sed 's/^[[:space:]]*[.!w<]/>/')
     echo "$migrated" >> "$target_file"
 
     # Update current file - change incomplete to migrated
@@ -246,7 +248,9 @@ migrate() {
         if [[ -n "$line" ]]; then
             local escaped_line
             escaped_line=$(printf '%s\n' "$line" | sed 's/[]\/$*.^[]/\\&/g')
-            sed_inplace "s/^${escaped_line}$/  > ${line#*[.!w<] }/" "$FILE"
+            # Strip leading spaces and replace bullet with >
+            local text_part="${line#*[.!w<] }"
+            sed_inplace "s/^${escaped_line}$/> ${text_part}/" "$FILE"
         fi
     done <<< "$incomplete"
 
