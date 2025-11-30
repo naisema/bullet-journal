@@ -242,6 +242,73 @@ migrate() {
     echo "Migrated to $target_date!"
 }
 
+# Schedule task to specific date
+schedule() {
+    local num="$1"
+    local date_arg="$2"
+    local target_date
+
+    # Parse date argument
+    if [[ "$date_arg" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+        # Full date: 2025-03-15
+        target_date="$date_arg"
+    elif [[ "$date_arg" =~ ^[0-9]{2}-[0-9]{2}$ ]]; then
+        # Month-Day: 12-25
+        local year
+        year=$(date +%Y)
+        target_date="$year-$date_arg"
+    else
+        echo "Error: Invalid date format"
+        echo "Usage: bj schedule [n] [MM-DD | YYYY-MM-DD]"
+        exit 1
+    fi
+
+    # Validate date
+    if ! date -j -f "%Y-%m-%d" "$target_date" &>/dev/null && ! date -d "$target_date" &>/dev/null; then
+        echo "Error: Invalid date '$target_date'"
+        exit 1
+    fi
+
+    # Get the task
+    local lines
+    lines=$(grep -v "^#" "$FILE" | grep -v "^$" || true)
+
+    local total
+    total=$(echo "$lines" | wc -l | tr -d ' ')
+
+    if [[ $num -lt 1 ]] || [[ $num -gt $total ]]; then
+        echo "Error: Task $num not found (1-$total)"
+        exit 1
+    fi
+
+    # Get actual line number in file
+    local line_nums
+    line_nums=$(grep -n -v "^#" "$FILE" | grep -v ":$" | cut -d: -f1)
+    local actual_line
+    actual_line=$(echo "$line_nums" | sed -n "${num}p")
+
+    # Get the task text
+    local task_line
+    task_line=$(sed -n "${actual_line}p" "$FILE")
+    local task_text
+    task_text=$(echo "$task_line" | sed -E 's/^[[:space:]]*[.!xoaw><-][[:space:]]*//')
+
+    # Create target file if needed
+    local target_file="$BJ_DIR/$target_date.md"
+    if [[ ! -f "$target_file" ]]; then
+        echo "# $target_date" > "$target_file"
+        echo "" >> "$target_file"
+    fi
+
+    # Add scheduled task to target date
+    echo "<  $task_text" >> "$target_file"
+
+    # Change bullet to < in current file
+    sed_inplace "${actual_line}s/^[[:space:]]*[.!xoaw><-]/</" "$FILE"
+
+    echo "Scheduled to $target_date: <  $task_text"
+}
+
 # Show help
 help() {
     cat <<'EOF'
@@ -256,6 +323,7 @@ USAGE:
   bj date today       Go to today
   bj date [date]      Go to specific date
   bj migrate          Migrate tasks to tomorrow
+  bj schedule [n] [date]  Schedule task n to date
 
 BULLETS:
   .  task     x  done      a  abandoned
@@ -270,6 +338,7 @@ EXAMPLES:
   bj del 3            # Delete task 3
   bj date 12-25       # Go to Dec 25
   bj migrate          # Migrate to tomorrow
+  bj schedule 2 12-25 # Schedule task 2 to Dec 25
 EOF
 }
 
@@ -306,6 +375,14 @@ case "$1" in
             exit 1
         fi
         migrate
+        exit 0
+        ;;
+    schedule)
+        if [[ $# -ne 3 ]]; then
+            echo "Usage: bj schedule [n] [MM-DD | YYYY-MM-DD]"
+            exit 1
+        fi
+        schedule "$2" "$3"
         exit 0
         ;;
     .)
