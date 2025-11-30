@@ -121,6 +121,7 @@ bj o Standup meeting 10am
 # List tasks
 bj
 # Output:
+#  1122 FRI
 #  .  Check email
 #  !  Finish presentation
 #  o  Standup meeting 10am
@@ -135,6 +136,7 @@ bj Call client
 # End of day - check status
 bj
 # Output:
+#  1122 FRI
 #  x  Check email
 #  !  Finish presentation
 #  x  Standup meeting 10am

@@ -44,6 +44,15 @@ sed_inplace() {
 
 # List tasks (without line numbers)
 list() {
+    # Show date header: MMDD DAY
+    local date_header
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        date_header=$(date -j -f "%Y-%m-%d" "$CURRENT_DATE" "+%m%d %a" | tr '[:lower:]' '[:upper:]')
+    else
+        date_header=$(date -d "$CURRENT_DATE" "+%m%d %a" | tr '[:lower:]' '[:upper:]')
+    fi
+    echo "$date_header"
+
     local entries
     entries=$(grep -v "^#" "$FILE" | grep -v "^$" || true)
 
@@ -158,7 +167,18 @@ navigate() {
         echo "" >> "$target_file"
     fi
 
-    echo "Switched to: $target_date"
+    # Update FILE variable for list function
+    FILE="$target_file"
+    CURRENT_DATE="$target_date"
+
+    # Show date header: MMDD DAY
+    local date_header
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        date_header=$(date -j -f "%Y-%m-%d" "$target_date" "+%m%d %a" | tr '[:lower:]' '[:upper:]')
+    else
+        date_header=$(date -d "$target_date" "+%m%d %a" | tr '[:lower:]' '[:upper:]')
+    fi
+    echo "$date_header"
 
     local entries
     entries=$(grep -v "^#" "$target_file" | grep -v "^$" || true)
