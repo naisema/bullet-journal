@@ -313,6 +313,12 @@ schedule() {
     local task_text
     task_text=$(echo "$task_line" | sed -E 's/^[[:space:]]*[.!xoaw><-][[:space:]]*//')
 
+    # Check if task already has a timestamp (YYYY-MM-DD: format)
+    if [[ "$task_text" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}:[[:space:]] ]]; then
+        echo "Task already scheduled: <  $task_text"
+        exit 0
+    fi
+
     # Create target file if needed
     local target_file="$BJ_DIR/$target_date.md"
     if [[ ! -f "$target_file" ]]; then
@@ -320,13 +326,16 @@ schedule() {
         echo "" >> "$target_file"
     fi
 
+    # Add timestamp prefix to task text
+    local scheduled_text="$target_date: $task_text"
+
     # Add scheduled task to target date
-    echo "<  $task_text" >> "$target_file"
+    echo "<  $scheduled_text" >> "$target_file"
 
-    # Change bullet to < in current file
-    sed_inplace "${actual_line}s/^[[:space:]]*[.!xoaw><-]/</" "$FILE"
+    # Change bullet to < and add timestamp in current file
+    sed_inplace "${actual_line}s/^[[:space:]]*[.!xoaw><-][[:space:]]*/<  $target_date: /" "$FILE"
 
-    echo "Scheduled to $target_date: <  $task_text"
+    echo "Scheduled to $target_date: <  $scheduled_text"
 }
 
 # Show help

@@ -105,12 +105,16 @@ bj schedule [n] [date]        # Schedule task n to specific date
 **Examples:**
 ```bash
 bj schedule 1 1225            # Schedule task 1 to Dec 25
+                              # Becomes: <  2025-12-25: task text
 bj schedule 3 20250315        # Schedule task 3 to Mar 15, 2025
+bj schedule 1 0101            # If task 1 already scheduled, does nothing
 ```
 
 When you schedule a task:
-- Task is marked as `<` (scheduled) in the current day
-- Task is copied as `<` to the target date
+- Task is marked as `<` (scheduled) with timestamp prefix in current day
+- Task is copied as `<` with timestamp to the target date
+- Format: `<  YYYY-MM-DD: task text`
+- If task is already scheduled (has timestamp), command does nothing
 
 ## Bullet Types
 
