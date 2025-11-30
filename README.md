@@ -81,19 +81,16 @@ bj date 2025-03-15            # Go to March 15, 2025
 ### Migrate Tasks
 ```bash
 bj migrate                    # Migrate incomplete tasks to tomorrow
-bj migrate [date]             # Migrate incomplete tasks to specific date
 ```
 
-**Examples:**
+**Example:**
 ```bash
 bj migrate                    # Move incomplete tasks to tomorrow
-bj migrate 12-15              # Move incomplete tasks to Dec 15
-bj migrate 2025-12-25         # Move incomplete tasks to Dec 25, 2025
 ```
 
 When you migrate tasks, incomplete tasks (`.`, `!`, `w`, `<`) are:
 - Changed to `>` (migrated) in the current day
-- Copied as `>` to the target day
+- Copied as `>` to tomorrow
 
 ## Bullet Types
 
@@ -212,7 +209,6 @@ export BJ_HOME=/path/to/journal
 | `bj date today`        | Go to today                   |
 | `bj date [date]`       | Go to specific date           |
 | `bj migrate`           | Migrate tasks to tomorrow     |
-| `bj migrate [date]`    | Migrate tasks to date         |
 
 ---
 

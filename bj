@@ -194,28 +194,13 @@ navigate() {
 
 # Migrate tasks
 migrate() {
-    local date_arg="${1:-tomorrow}"
     local target_date
 
-    if [[ "$date_arg" == "tomorrow" ]]; then
-        # Get tomorrow's date
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            target_date=$(date -v+1d -j -f "%Y-%m-%d" "$CURRENT_DATE" +%Y-%m-%d)
-        else
-            target_date=$(date -d "$CURRENT_DATE + 1 day" +%Y-%m-%d)
-        fi
-    elif [[ "$date_arg" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
-        # Full date: 2025-03-15
-        target_date="$date_arg"
-    elif [[ "$date_arg" =~ ^[0-9]{2}-[0-9]{2}$ ]]; then
-        # Month-Day: 12-25
-        local year
-        year=$(date +%Y)
-        target_date="$year-$date_arg"
+    # Get tomorrow's date
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        target_date=$(date -v+1d -j -f "%Y-%m-%d" "$CURRENT_DATE" +%Y-%m-%d)
     else
-        echo "Error: Invalid date format"
-        echo "Usage: bj migrate [MM-DD | YYYY-MM-DD]"
-        exit 1
+        target_date=$(date -d "$CURRENT_DATE + 1 day" +%Y-%m-%d)
     fi
 
     # Create target file if needed
@@ -271,7 +256,6 @@ USAGE:
   bj date today       Go to today
   bj date [date]      Go to specific date
   bj migrate          Migrate tasks to tomorrow
-  bj migrate [date]   Migrate tasks to date
 
 BULLETS:
   .  task     x  done      a  abandoned
@@ -286,7 +270,6 @@ EXAMPLES:
   bj del 3            # Delete task 3
   bj date 12-25       # Go to Dec 25
   bj migrate          # Migrate to tomorrow
-  bj migrate 12-25    # Migrate to Dec 25
 EOF
 }
 
@@ -318,11 +301,11 @@ case "$1" in
         exit 0
         ;;
     migrate)
-        if [[ $# -eq 1 ]]; then
-            migrate "tomorrow"
-        else
-            migrate "$2"
+        if [[ $# -ne 1 ]]; then
+            echo "Usage: bj migrate"
+            exit 1
         fi
+        migrate
         exit 0
         ;;
     .)
