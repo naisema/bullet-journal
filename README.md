@@ -18,7 +18,7 @@ bj                            # List all tasks
 bj x 1                        # Mark task 1 as done
 bj del 2                      # Delete task 2
 bj migrate                    # Move incomplete tasks to tomorrow
-bj d                          # Go back to today
+bj date today                 # Go back to today
 ```
 
 ## Commands
@@ -67,16 +67,15 @@ bj del 1                      # Delete task 1
 
 ### Date Navigation
 ```bash
-bj d                          # Go to today
-bj d[date]                    # Go to specific date
+bj date today                 # Go to today
+bj date [date]                # Go to specific date
 ```
 
 **Examples:**
 ```bash
-bj d                          # Back to today
-bj d15                        # Go to day 15 of current month
-bj d1225                      # Go to December 25 of current year
-bj d20250315                  # Go to March 15, 2025
+bj date today                 # Back to today
+bj date 12-25                 # Go to December 25 of current year
+bj date 2025-03-15            # Go to March 15, 2025
 ```
 
 ### Migrate Tasks
@@ -88,8 +87,8 @@ bj migrate [date]             # Migrate incomplete tasks to specific date
 **Examples:**
 ```bash
 bj migrate                    # Move incomplete tasks to tomorrow
-bj migrate 15                 # Move incomplete tasks to day 15
-bj migrate 1225               # Move incomplete tasks to Dec 25
+bj migrate 12-15              # Move incomplete tasks to Dec 15
+bj migrate 2025-12-25         # Move incomplete tasks to Dec 25, 2025
 ```
 
 When you migrate tasks, incomplete tasks (`.`, `!`, `w`, `<`) are:
@@ -208,8 +207,8 @@ export BJ_HOME=/path/to/journal
 | `bj [bullet] [text]`   | Add task with bullet          |
 | `bj [bullet] [n]`      | Change task n to bullet       |
 | `bj del [n]`           | Delete task n                 |
-| `bj d`                 | Go to today                   |
-| `bj d[date]`           | Go to specific date           |
+| `bj date today`        | Go to today                   |
+| `bj date [date]`       | Go to specific date           |
 | `bj migrate`           | Migrate tasks to tomorrow     |
 | `bj migrate [date]`    | Migrate tasks to date         |
 
