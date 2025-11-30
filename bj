@@ -125,11 +125,21 @@ delete() {
     local actual_line
     actual_line=$(echo "$line_nums" | sed -n "${num}p")
 
-    local deleted
-    deleted=$(sed -n "${actual_line}p" "$FILE")
+    local to_delete
+    to_delete=$(sed -n "${actual_line}p" "$FILE")
+
+    # Show task and ask for confirmation
+    echo "Delete: $to_delete"
+    read -p "Are you sure? (y/N): " -n 1 -r
+    echo
+
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Cancelled."
+        exit 0
+    fi
 
     sed_inplace "${actual_line}d" "$FILE"
-    echo "Deleted: $deleted"
+    echo "Deleted."
 }
 
 # Navigate to date

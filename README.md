@@ -63,8 +63,10 @@ bj del [number]               # Delete task by number
 
 **Example:**
 ```bash
-bj del 1                      # Delete task 1
+bj del 1                      # Delete task 1 (asks for confirmation)
 ```
+
+**Note:** Deletion requires confirmation to prevent accidental data loss.
 
 ### Date Navigation
 ```bash
