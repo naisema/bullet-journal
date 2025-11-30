@@ -225,9 +225,9 @@ migrate() {
         echo "" >> "$target_file"
     fi
 
-    # Find incomplete tasks (., !, w, <)
+    # Find incomplete tasks (., !, w) - exclude scheduled (<)
     local incomplete
-    incomplete=$(grep -E "^[[:space:]]*[.!w<]" "$FILE" || true)
+    incomplete=$(grep -E "^[[:space:]]*[.!w]" "$FILE" || true)
 
     if [[ -z "$incomplete" ]]; then
         echo "No incomplete tasks to migrate."
@@ -240,7 +240,7 @@ migrate() {
 
     # Change bullets to > (migrated) and append to target file
     local migrated
-    migrated=$(echo "$incomplete" | sed 's/^[[:space:]]*[.!w<]/>/')
+    migrated=$(echo "$incomplete" | sed 's/^[[:space:]]*[.!w]/>/')
     echo "$migrated" >> "$target_file"
 
     # Update current file - change incomplete to migrated
@@ -249,7 +249,7 @@ migrate() {
             local escaped_line
             escaped_line=$(printf '%s\n' "$line" | sed 's/[]\/$*.^[]/\\&/g')
             # Strip leading spaces and replace bullet with >
-            local text_part="${line#*[.!w<] }"
+            local text_part="${line#*[.!w] }"
             sed_inplace "s/^${escaped_line}$/> ${text_part}/" "$FILE"
         fi
     done <<< "$incomplete"

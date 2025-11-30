@@ -91,9 +91,11 @@ bj migrate                    # Migrate incomplete tasks to tomorrow
 bj migrate                    # Move incomplete tasks to tomorrow
 ```
 
-When you migrate tasks, incomplete tasks (`.`, `!`, `w`, `<`) are:
+When you migrate tasks, incomplete tasks (`.`, `!`, `w`) are:
 - Changed to `>` (migrated) in the current day
 - Copied as `>` to tomorrow
+
+**Note:** Scheduled tasks (`<`) are NOT migrated since they are already scheduled for a specific date.
 
 ### Schedule Task
 ```bash
