@@ -326,11 +326,11 @@ schedule() {
         echo "" >> "$target_file"
     fi
 
-    # Add timestamp prefix to task text
+    # Add timestamp prefix for current day
     local scheduled_text="$target_date: $task_text"
 
-    # Add scheduled task to target date
-    echo "<  $scheduled_text" >> "$target_file"
+    # Add as regular task (.) on target date (without timestamp)
+    echo ".  $task_text" >> "$target_file"
 
     # Change bullet to < and add timestamp in current file
     sed_inplace "${actual_line}s/^[[:space:]]*[.!xoaw><-][[:space:]]*/<  $target_date: /" "$FILE"
