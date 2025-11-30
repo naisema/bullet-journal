@@ -1,0 +1,356 @@
+#!/bin/bash
+#
+# bj - Minimal Bullet Journal
+# Version: 1.0.0
+
+set -euo pipefail
+
+BJ_DIR="${BJ_HOME:-$HOME/bj}"
+CACHE_FILE="$BJ_DIR/.current_date"
+
+mkdir -p "$BJ_DIR"
+
+# Get current working date
+get_current_date() {
+    if [[ -f "$CACHE_FILE" ]]; then
+        cat "$CACHE_FILE"
+    else
+        date +%Y-%m-%d
+    fi
+}
+
+# Set current working date
+set_current_date() {
+    echo "$1" > "$CACHE_FILE"
+}
+
+CURRENT_DATE=$(get_current_date)
+FILE="$BJ_DIR/$CURRENT_DATE.md"
+
+# Create file if needed
+if [[ ! -f "$FILE" ]]; then
+    echo "# $CURRENT_DATE" > "$FILE"
+    echo "" >> "$FILE"
+fi
+
+# Portable sed in-place
+sed_inplace() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "$@"
+    else
+        sed -i "$@"
+    fi
+}
+
+# List tasks (without line numbers)
+list() {
+    local entries
+    entries=$(grep -v "^#" "$FILE" | grep -v "^$" || true)
+
+    if [[ -z "$entries" ]]; then
+        echo "No tasks."
+    else
+        echo "$entries"
+    fi
+}
+
+# Add task
+add() {
+    local bullet="$1"
+    shift
+    local text="$*"
+
+    echo "$bullet  $text" >> "$FILE"
+    echo "$bullet  $text"
+}
+
+# Change bullet
+change() {
+    local new_bullet="$1"
+    local num="$2"
+
+    # Get non-empty, non-comment lines
+    local lines
+    lines=$(grep -v "^#" "$FILE" | grep -v "^$" || true)
+
+    local total
+    total=$(echo "$lines" | wc -l | tr -d ' ')
+
+    if [[ $num -lt 1 ]] || [[ $num -gt $total ]]; then
+        echo "Error: Task $num not found (1-$total)"
+        exit 1
+    fi
+
+    # Get actual line number in file
+    local line_nums
+    line_nums=$(grep -n -v "^#" "$FILE" | grep -v ":$" | cut -d: -f1)
+    local actual_line
+    actual_line=$(echo "$line_nums" | sed -n "${num}p")
+
+    # Change the bullet
+    sed_inplace "${actual_line}s/^[[:space:]]*[.!xoaw><-]/  $new_bullet/" "$FILE"
+
+    local new_line
+    new_line=$(sed -n "${actual_line}p" "$FILE")
+    echo "$new_line"
+}
+
+# Delete task
+delete() {
+    local num="$1"
+
+    local lines
+    lines=$(grep -v "^#" "$FILE" | grep -v "^$" || true)
+
+    local total
+    total=$(echo "$lines" | wc -l | tr -d ' ')
+
+    if [[ $num -lt 1 ]] || [[ $num -gt $total ]]; then
+        echo "Error: Task $num not found (1-$total)"
+        exit 1
+    fi
+
+    local line_nums
+    line_nums=$(grep -n -v "^#" "$FILE" | grep -v ":$" | cut -d: -f1)
+    local actual_line
+    actual_line=$(echo "$line_nums" | sed -n "${num}p")
+
+    local deleted
+    deleted=$(sed -n "${actual_line}p" "$FILE")
+
+    sed_inplace "${actual_line}d" "$FILE"
+    echo "Deleted: $deleted"
+}
+
+# Navigate to date
+navigate() {
+    local date_arg="$1"
+    local target_date
+
+    if [[ "$date_arg" == "today" ]]; then
+        target_date=$(date +%Y-%m-%d)
+    else
+        local len=${#date_arg}
+        case $len in
+            1|2)
+                # Day only (e.g., 5, 15)
+                local year_month
+                year_month=$(echo "$CURRENT_DATE" | cut -d- -f1,2)
+                target_date=$(printf "%s-%02d" "$year_month" "$date_arg")
+                ;;
+            4)
+                # MMDD (e.g., 1225)
+                local mm="${date_arg:0:2}"
+                local dd="${date_arg:2:2}"
+                local year
+                year=$(date +%Y)
+                target_date="$year-$mm-$dd"
+                ;;
+            8)
+                # YYYYMMDD (e.g., 20250315)
+                local yyyy="${date_arg:0:4}"
+                local mm="${date_arg:4:2}"
+                local dd="${date_arg:6:2}"
+                target_date="$yyyy-$mm-$dd"
+                ;;
+            *)
+                echo "Error: Invalid date format"
+                echo "Usage: bj d[date] where date is: 5, 15, 1225, or 20250315"
+                exit 1
+                ;;
+        esac
+    fi
+
+    # Validate date (basic check)
+    if ! date -j -f "%Y-%m-%d" "$target_date" &>/dev/null && ! date -d "$target_date" &>/dev/null; then
+        echo "Error: Invalid date '$target_date'"
+        exit 1
+    fi
+
+    set_current_date "$target_date"
+
+    local target_file="$BJ_DIR/$target_date.md"
+    if [[ ! -f "$target_file" ]]; then
+        echo "# $target_date" > "$target_file"
+        echo "" >> "$target_file"
+    fi
+
+    echo "Switched to: $target_date"
+
+    local entries
+    entries=$(grep -v "^#" "$target_file" | grep -v "^$" || true)
+
+    if [[ -z "$entries" ]]; then
+        echo "No tasks."
+    else
+        echo "$entries"
+    fi
+}
+
+# Migrate tasks
+migrate() {
+    local date_arg="${1:-tomorrow}"
+    local target_date
+
+    if [[ "$date_arg" == "tomorrow" ]]; then
+        # Get tomorrow's date
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            target_date=$(date -v+1d -j -f "%Y-%m-%d" "$CURRENT_DATE" +%Y-%m-%d)
+        else
+            target_date=$(date -d "$CURRENT_DATE + 1 day" +%Y-%m-%d)
+        fi
+    else
+        # Parse date argument (same format as navigate)
+        local len=${#date_arg}
+        case $len in
+            1|2)
+                local year_month
+                year_month=$(echo "$CURRENT_DATE" | cut -d- -f1,2)
+                target_date=$(printf "%s-%02d" "$year_month" "$date_arg")
+                ;;
+            4)
+                local mm="${date_arg:0:2}"
+                local dd="${date_arg:2:2}"
+                local year
+                year=$(date +%Y)
+                target_date="$year-$mm-$dd"
+                ;;
+            8)
+                local yyyy="${date_arg:0:4}"
+                local mm="${date_arg:4:2}"
+                local dd="${date_arg:6:2}"
+                target_date="$yyyy-$mm-$dd"
+                ;;
+            *)
+                echo "Error: Invalid date format"
+                exit 1
+                ;;
+        esac
+    fi
+
+    # Create target file if needed
+    local target_file="$BJ_DIR/$target_date.md"
+    if [[ ! -f "$target_file" ]]; then
+        echo "# $target_date" > "$target_file"
+        echo "" >> "$target_file"
+    fi
+
+    # Find incomplete tasks (., !, w, <)
+    local incomplete
+    incomplete=$(grep -E "^[[:space:]]*[.!w<]" "$FILE" || true)
+
+    if [[ -z "$incomplete" ]]; then
+        echo "No incomplete tasks to migrate."
+        exit 0
+    fi
+
+    echo "Migrating incomplete tasks to $target_date:"
+    echo "$incomplete"
+    echo ""
+
+    # Change bullets to > (migrated) and append to target file
+    local migrated
+    migrated=$(echo "$incomplete" | sed 's/^[[:space:]]*[.!w<]/  >/')
+    echo "$migrated" >> "$target_file"
+
+    # Update current file - change incomplete to migrated
+    while IFS= read -r line; do
+        if [[ -n "$line" ]]; then
+            local escaped_line
+            escaped_line=$(printf '%s\n' "$line" | sed 's/[]\/$*.^[]/\\&/g')
+            sed_inplace "s/^${escaped_line}$/  > ${line#*[.!w<] }/" "$FILE"
+        fi
+    done <<< "$incomplete"
+
+    echo "Migrated to $target_date!"
+}
+
+# Show help
+help() {
+    cat <<'EOF'
+bj - Minimal Bullet Journal
+
+USAGE:
+  bj                  List tasks
+  bj [text]           Add task (default: .)
+  bj [bullet] [text]  Add task with bullet
+  bj [bullet] [n]     Change task n to bullet
+  bj del [n]          Delete task n
+  bj d                Go to today
+  bj d[date]          Go to specific date
+  bj migrate          Migrate tasks to tomorrow
+  bj migrate [date]   Migrate tasks to date
+
+BULLETS:
+  .  task     x  done      a  abandoned
+  !  priority o  event     -  note
+  w  waiting  >  migrated  <  scheduled
+
+EXAMPLES:
+  bj                  # List all tasks
+  bj Buy milk         # Add task ". Buy milk"
+  bj o Meeting at 3pm # Add event
+  bj x 1              # Mark task 1 as done
+  bj del 3            # Delete task 3
+  bj d15              # Go to day 15
+  bj migrate          # Migrate to tomorrow
+  bj migrate 20       # Migrate to day 20
+EOF
+}
+
+# Main
+if [[ $# -eq 0 ]]; then
+    list
+    exit 0
+fi
+
+case "$1" in
+    -h|--help|help)
+        help
+        exit 0
+        ;;
+    del)
+        if [[ $# -ne 2 ]]; then
+            echo "Usage: bj del [n]"
+            exit 1
+        fi
+        delete "$2"
+        exit 0
+        ;;
+    d)
+        navigate "today"
+        exit 0
+        ;;
+    d*)
+        # d15, d1225, d20250315
+        navigate "${1:1}"
+        exit 0
+        ;;
+    migrate)
+        if [[ $# -eq 1 ]]; then
+            migrate "tomorrow"
+        else
+            migrate "$2"
+        fi
+        exit 0
+        ;;
+    .)
+        # bj . some task
+        add . "${@:2}"
+        exit 0
+        ;;
+    "!"|x|o|a|w|">"|"<"|-)
+        # Could be: bj x 1 (change) or bj x some text (add)
+        if [[ $# -eq 2 ]] && [[ "$2" =~ ^[0-9]+$ ]]; then
+            change "$1" "$2"
+        else
+            add "$1" "${@:2}"
+        fi
+        exit 0
+        ;;
+    *)
+        # bj some text - add as task
+        add . "$@"
+        exit 0
+        ;;
+esac
