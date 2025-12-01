@@ -35,6 +35,11 @@ bj [text]                     # Add task with default bullet (.)
 bj [bullet] [text]            # Add task with specific bullet
 ```
 
+**Valid bullets for adding tasks:**
+- `.` (task), `!` (priority), `o` (event), `-` (note)
+
+**Note:** Status bullets like `x` (done), `a` (abandoned), `w` (waiting) can only be used to change existing tasks, not to add new ones.
+
 **Examples:**
 ```bash
 bj Buy milk                   # Add: .  Buy milk
@@ -49,11 +54,19 @@ bj - Remember to call mom     # Add: -  Remember to call mom
 bj [bullet] [number]          # Change task number to new bullet
 ```
 
+**Valid bullets for changing status:**
+- `!` (priority), `x` (done), `o` (event), `a` (abandoned), `w` (waiting), `-` (note)
+
+**Note:** Bullets `.` (task), `>` (migrated), and `<` (scheduled) cannot be manually set. Migrated and scheduled bullets are system-managed through `bj migrate` and `bj schedule` commands.
+
 **Examples:**
 ```bash
 bj x 1                        # Mark task 1 as done
 bj a 2                        # Mark task 2 as abandoned
-bj > 3                        # Mark task 3 as migrated
+bj w 3                        # Mark task 3 as waiting
+bj ! 4                        # Mark task 4 as priority
+bj o 5                        # Mark task 5 as event
+bj - 6                        # Mark task 6 as note
 ```
 
 ### Delete Task
@@ -132,6 +145,11 @@ When you schedule a task:
 | `<`    | Scheduled | Scheduled for future           |
 | `-`    | Note      | Just a note                    |
 
+**Bullet Usage:**
+- **For adding:** `.` `!` `o` `-`
+- **For changing:** `!` `x` `o` `a` `w` `-`
+- **System-managed:** `>` (via `bj migrate`), `<` (via `bj schedule`)
+
 ## Usage Examples
 
 ### Daily Workflow
@@ -165,9 +183,9 @@ bj
 #  x  Standup meeting 10am
 #  .  Call client
 
-# Move incomplete to tomorrow
-bj > 2
-bj > 4
+# Move incomplete tasks to tomorrow
+bj migrate
+# Migrates task 2 (Finish presentation) and task 4 (Call client)
 ```
 
 ### Task Management
