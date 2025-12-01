@@ -435,6 +435,12 @@ case "$1" in
         exit 0
         ;;
     *)
+        # Check if first argument looks like an invalid bullet attempt
+        if [[ ${#1} -eq 1 ]] && [[ ! "$1" =~ ^${ADD_BULLET_PATTERN}$ ]]; then
+            echo "Error: Invalid bullet '$1' for adding tasks" >&2
+            echo "Valid bullets for adding: . (task), ! (priority), o (event), - (note)" >&2
+            exit 1
+        fi
         # bj some text - add as task
         add . "$@"
         exit 0
