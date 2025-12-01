@@ -25,6 +25,7 @@ readonly BULLET_NOTE="-"
 readonly BULLET_PATTERN='[.!xoaw><-]'
 readonly INCOMPLETE_PATTERN='[.!w]'
 readonly ADD_BULLET_PATTERN='[.!o-]'
+readonly CHANGE_BULLET_PATTERN='[!xoaw-]'
 
 mkdir -p "$BJ_DIR"
 
@@ -176,6 +177,13 @@ add() {
 change() {
     local new_bullet="$1"
     local num="$2"
+
+    # Validate bullet type for changing
+    if [[ ! "$new_bullet" =~ ^${CHANGE_BULLET_PATTERN}$ ]]; then
+        echo "Error: Invalid bullet '$new_bullet' for changing task status" >&2
+        echo "Valid bullets for changing: ! (priority), x (done), o (event), a (abandoned), w (waiting), - (note)" >&2
+        exit 1
+    fi
 
     local actual_line
     actual_line=$(get_task_line "$num") || exit 1
@@ -425,13 +433,27 @@ case "$1" in
         add . "${@:2}"
         exit 0
         ;;
-    "!"|x|o|a|w|">"|"<"|-)
-        # Could be: bj x 1 (change) or bj x some text (add)
+    "!"|o|-)
+        # Could be: bj ! 1 (change) or bj ! some text (add)
         if [[ $# -eq 2 ]] && [[ "$2" =~ ^[0-9]+$ ]]; then
             change "$1" "$2"
         else
             add "$1" "${@:2}"
         fi
+        exit 0
+        ;;
+    x|a|w)
+        # Only for changing status: bj x 1
+        if [[ $# -ne 2 ]]; then
+            echo "Usage: bj $1 [n]" >&2
+            exit 1
+        fi
+        if [[ ! "$2" =~ ^[0-9]+$ ]]; then
+            echo "Error: Bullet '$1' can only be used for changing task status, not adding tasks" >&2
+            echo "Usage: bj $1 [task_number]" >&2
+            exit 1
+        fi
+        change "$1" "$2"
         exit 0
         ;;
     *)
