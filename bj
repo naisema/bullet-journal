@@ -24,6 +24,7 @@ readonly BULLET_NOTE="-"
 # Regex patterns
 readonly BULLET_PATTERN='[.!xoaw><-]'
 readonly INCOMPLETE_PATTERN='[.!w]'
+readonly ADD_BULLET_PATTERN='[.!o-]'
 
 mkdir -p "$BJ_DIR"
 
@@ -153,6 +154,13 @@ add() {
     local bullet="$1"
     shift
     local text="$*"
+
+    # Validate bullet type for adding
+    if [[ ! "$bullet" =~ ^${ADD_BULLET_PATTERN}$ ]]; then
+        echo "Error: Invalid bullet '$bullet' for adding tasks" >&2
+        echo "Valid bullets for adding: . (task), ! (priority), o (event), - (note)" >&2
+        exit 1
+    fi
 
     # Validate task text is not empty
     if [[ -z "$text" ]]; then
