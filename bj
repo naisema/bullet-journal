@@ -9,6 +9,8 @@ set -euo pipefail
 readonly VERSION="1.0.0"
 readonly BJ_DIR="${BJ_HOME:-$HOME/bj}"
 readonly CACHE_FILE="$BJ_DIR/.current_date"
+readonly CACHE_MODE="$BJ_DIR/.current_mode"
+readonly CACHE_MONTH="$BJ_DIR/.current_month"
 
 # Bullet type constants
 readonly BULLET_TASK="."
@@ -43,12 +45,52 @@ set_current_date() {
     echo "$1" > "$CACHE_FILE"
 }
 
+# Get current mode (daily/monthly)
+get_current_mode() {
+    if [[ -f "$CACHE_MODE" ]]; then
+        cat "$CACHE_MODE"
+    else
+        echo "daily"
+    fi
+}
+
+# Set current mode
+set_current_mode() {
+    echo "$1" > "$CACHE_MODE"
+}
+
+# Get current working month
+get_current_month() {
+    if [[ -f "$CACHE_MONTH" ]]; then
+        cat "$CACHE_MONTH"
+    else
+        date +%Y-%m
+    fi
+}
+
+# Set current working month
+set_current_month() {
+    echo "$1" > "$CACHE_MONTH"
+}
+
 CURRENT_DATE=$(get_current_date)
-FILE="$BJ_DIR/$CURRENT_DATE.md"
+CURRENT_MODE=$(get_current_mode)
+CURRENT_MONTH=$(get_current_month)
+
+# Set FILE based on mode
+if [[ "$CURRENT_MODE" == "monthly" ]]; then
+    FILE="$BJ_DIR/$CURRENT_MONTH.md"
+else
+    FILE="$BJ_DIR/$CURRENT_DATE.md"
+fi
 
 # Create file if needed
 if [[ ! -f "$FILE" ]]; then
-    echo "# $CURRENT_DATE" > "$FILE"
+    if [[ "$CURRENT_MODE" == "monthly" ]]; then
+        echo "# $CURRENT_MONTH" > "$FILE"
+    else
+        echo "# $CURRENT_DATE" > "$FILE"
+    fi
     echo "" >> "$FILE"
 fi
 
@@ -71,6 +113,18 @@ show_date_header() {
         date_header=$(date -d "$date_to_show" "+%m%d %a" | tr '[:lower:]' '[:upper:]')
     fi
     echo "$date_header"
+}
+
+# Helper: Show formatted month header
+show_month_header() {
+    local month_to_show="$1"
+    local month_header
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        month_header=$(date -j -f "%Y-%m" "$month_to_show" "+%Y %b" | tr '[:lower:]' '[:upper:]')
+    else
+        month_header=$(date -d "$month_to_show-01" "+%Y %b" | tr '[:lower:]' '[:upper:]')
+    fi
+    echo "$month_header"
 }
 
 # Helper: Get task line number in file
@@ -124,6 +178,40 @@ validate_date() {
     return 0
 }
 
+# Helper: Parse month argument to YYYY-MM format
+parse_month() {
+    local month_arg="$1"
+
+    if [[ "$month_arg" =~ ^[0-9]{6}$ ]]; then
+        # YYYYMM
+        echo "${month_arg:0:4}-${month_arg:4:2}"
+    elif [[ "$month_arg" =~ ^[0-9]{2}$ ]]; then
+        # MM (current year)
+        echo "$(date +%Y)-${month_arg}"
+    else
+        echo "Error: Invalid month format" >&2
+        echo "Month must be in format MM or YYYYMM" >&2
+        echo "Example: 12 (Dec this year) or 202601 (Jan 2026)" >&2
+        return 1
+    fi
+}
+
+# Helper: Validate month format
+validate_month() {
+    local month_str="$1"
+    # Check format YYYY-MM and valid month (01-12)
+    if ! [[ "$month_str" =~ ^[0-9]{4}-[0-9]{2}$ ]]; then
+        echo "Error: Invalid month format '$month_str'" >&2
+        return 1
+    fi
+    local month="${month_str:5:2}"
+    if [[ $month -lt 1 ]] || [[ $month -gt 12 ]]; then
+        echo "Error: Invalid month '$month' (must be 01-12)" >&2
+        return 1
+    fi
+    return 0
+}
+
 # Helper: Create or ensure file exists
 ensure_file() {
     local file_path="$1"
@@ -137,13 +225,22 @@ ensure_file() {
 
 # List tasks (without line numbers)
 list() {
-    show_date_header "$CURRENT_DATE"
+    # Show header based on mode
+    if [[ "$CURRENT_MODE" == "monthly" ]]; then
+        echo "[Monthly] $(show_month_header "$CURRENT_MONTH")"
+    else
+        echo "[Daily] $(show_date_header "$CURRENT_DATE")"
+    fi
 
     local entries
     entries=$(grep -v "^#" "$FILE" | grep -v "^$" || true)
 
     if [[ -z "$entries" ]]; then
-        echo "No tasks."
+        if [[ "$CURRENT_MODE" == "monthly" ]]; then
+            echo "No monthly logs."
+        else
+            echo "No tasks."
+        fi
     else
         # Strip leading spaces for consistent alignment
         echo "$entries" | sed 's/^[[:space:]]*//'
@@ -249,6 +346,7 @@ navigate() {
     validate_date "$target_date" || exit 1
 
     set_current_date "$target_date"
+    set_current_mode "daily"
 
     local target_file="$BJ_DIR/$target_date.md"
     ensure_file "$target_file" "$target_date"
@@ -256,6 +354,7 @@ navigate() {
     # Update FILE variable for list function
     FILE="$target_file"
     CURRENT_DATE="$target_date"
+    CURRENT_MODE="daily"
 
     # Show date header and tasks
     show_date_header "$target_date"
@@ -367,13 +466,78 @@ schedule() {
     echo "Scheduled to $target_date: ${BULLET_SCHEDULED}  $scheduled_text"
 }
 
+# Switch write mode
+write_mode() {
+    local mode="$1"
+
+    if [[ "$mode" != "daily" ]] && [[ "$mode" != "monthly" ]]; then
+        echo "Error: Invalid mode '$mode'" >&2
+        echo "Valid modes: daily, monthly" >&2
+        exit 1
+    fi
+
+    set_current_mode "$mode"
+
+    if [[ "$mode" == "monthly" ]]; then
+        echo "Switched to monthly log mode"
+        # Initialize current month if not set
+        CURRENT_MONTH=$(get_current_month)
+        FILE="$BJ_DIR/$CURRENT_MONTH.md"
+        ensure_file "$FILE" "$CURRENT_MONTH"
+        CURRENT_MODE="monthly"
+    else
+        echo "Switched to daily log mode"
+        # Re-initialize to current date
+        CURRENT_DATE=$(get_current_date)
+        FILE="$BJ_DIR/$CURRENT_DATE.md"
+        ensure_file "$FILE" "$CURRENT_DATE"
+        CURRENT_MODE="daily"
+    fi
+
+    # Show current context
+    list
+}
+
+# Navigate to month
+navigate_month() {
+    local month_arg="$1"
+
+    local target_month
+    target_month=$(parse_month "$month_arg") || exit 1
+
+    validate_month "$target_month" || exit 1
+
+    set_current_month "$target_month"
+    set_current_mode "monthly"
+
+    local target_file="$BJ_DIR/$target_month.md"
+    ensure_file "$target_file" "$target_month"
+
+    # Update global variables
+    FILE="$target_file"
+    CURRENT_MONTH="$target_month"
+    CURRENT_MODE="monthly"
+
+    # Show month header and logs
+    echo "[Monthly] $(show_month_header "$target_month")"
+
+    local entries
+    entries=$(grep -v "^#" "$target_file" | grep -v "^$" || true)
+
+    if [[ -z "$entries" ]]; then
+        echo "No monthly logs."
+    else
+        echo "$entries" | sed 's/^[[:space:]]*//'
+    fi
+}
+
 # Show help
 help() {
     cat <<'EOF'
 bj - Minimal Bullet Journal
 
 USAGE:
-  bj                  List tasks
+  bj                  List tasks (daily or monthly based on mode)
   bj [text]           Add task (default: .)
   bj [bullet] [text]  Add task with bullet
   bj [bullet] [n]     Change task n to bullet
@@ -382,6 +546,9 @@ USAGE:
   bj date [date]      Go to specific date
   bj migrate          Migrate tasks to tomorrow
   bj schedule [n] [date]  Schedule task n to date
+  bj write daily      Switch to daily log mode
+  bj write monthly    Switch to monthly log mode
+  bj month [month]    Navigate to specific month (auto-switches to monthly mode)
 
 BULLETS:
   .  task     x  done      a  abandoned
@@ -389,7 +556,7 @@ BULLETS:
   w  waiting  >  migrated  <  scheduled
 
 EXAMPLES:
-  bj                  # List all tasks
+  bj                  # List tasks in current mode
   bj Buy milk         # Add task ". Buy milk"
   bj o Meeting at 3pm # Add event
   bj x 1              # Mark task 1 as done
@@ -397,6 +564,10 @@ EXAMPLES:
   bj date 1225        # Go to Dec 25
   bj migrate          # Migrate to tomorrow
   bj schedule 2 1225  # Schedule task 2 to Dec 25
+  bj write monthly    # Switch to monthly logs
+  bj month 12         # Navigate to December
+  bj month 202601     # Navigate to January 2026
+  bj write daily      # Switch back to daily logs
 EOF
 }
 
@@ -445,6 +616,22 @@ case "$1" in
             exit 1
         fi
         schedule "$2" "$3"
+        exit 0
+        ;;
+    write)
+        if [[ $# -ne 2 ]]; then
+            echo "Usage: bj write daily | bj write monthly"
+            exit 1
+        fi
+        write_mode "$2"
+        exit 0
+        ;;
+    month)
+        if [[ $# -ne 2 ]]; then
+            echo "Usage: bj month MM | bj month YYYYMM"
+            exit 1
+        fi
+        navigate_month "$2"
         exit 0
         ;;
     .)

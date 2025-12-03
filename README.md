@@ -20,6 +20,8 @@ bj del 2                      # Delete task 2
 bj schedule 3 1225            # Schedule task 3 to Dec 25
 bj migrate                    # Move incomplete tasks to tomorrow
 bj date today                 # Go back to today
+bj write monthly              # Switch to monthly logs
+bj month 12                   # Navigate to December
 ```
 
 ## Commands
@@ -133,6 +135,29 @@ When you schedule a task:
   - Format: `.  task text`
 - If task is already scheduled (has timestamp), command does nothing
 
+### Monthly Logs
+```bash
+bj write daily                # Switch to daily log mode
+bj write monthly              # Switch to monthly log mode
+bj month [month]              # Navigate to specific month
+```
+
+**Examples:**
+```bash
+bj write monthly              # Switch to monthly logs
+bj - Completed project X      # Add note to current month
+bj month 12                   # Navigate to December (current year)
+bj month 202601               # Navigate to January 2026
+bj write daily                # Switch back to daily mode
+```
+
+**Monthly Log Features:**
+- Use monthly logs for high-level reflections, goals, or summaries
+- Monthly logs are stored separately from daily entries
+- All bullet types work the same way (add notes, events, etc.)
+- Navigating to a specific date (`bj date`) automatically switches back to daily mode
+- The mode persists between sessions - use `bj write daily/monthly` to switch
+
 ## Bullet Types
 
 | Bullet | Meaning    | Description                    |
@@ -214,11 +239,12 @@ bj del 4                      # Remove from list
 
 ## File Storage
 
-- Tasks are stored in: `~/bj/YYYY-MM-DD.md`
-- Each day gets its own file
+- Daily tasks are stored in: `~/bj/YYYY-MM-DD.md`
+- Monthly logs are stored in: `~/bj/YYYY-MM.md`
+- Each day/month gets its own file
 - Files are plain markdown - easy to read/edit manually
 
-**Example file content (`~/bj/2025-11-30.md`):**
+**Example daily file (`~/bj/2025-11-30.md`):**
 ```markdown
 # 2025-11-30
 
@@ -226,6 +252,15 @@ bj del 4                      # Remove from list
 !  Fix critical bug
 o  Team meeting 3pm
 -  Remember to call mom
+```
+
+**Example monthly file (`~/bj/2025-12.md`):**
+```markdown
+# 2025-12
+
+-  Completed major project refactor
+-  Team grew to 5 members
+o  Holiday party on Dec 20
 ```
 
 ## Configuration
@@ -247,15 +282,18 @@ export BJ_HOME=/path/to/journal
 
 | Command                | Action                        |
 |------------------------|-------------------------------|
-| `bj`                   | List tasks                    |
-| `bj [text]`            | Add task                      |
-| `bj [bullet] [text]`   | Add task with bullet          |
+| `bj`                   | List tasks/logs (current mode)|
+| `bj [text]`            | Add task/note                 |
+| `bj [bullet] [text]`   | Add task/note with bullet     |
 | `bj [bullet] [n]`      | Change task n to bullet       |
 | `bj del [n]`           | Delete task n                 |
 | `bj date today`        | Go to today                   |
 | `bj date [date]`       | Go to specific date           |
 | `bj migrate`           | Migrate tasks to tomorrow     |
 | `bj schedule [n] [date]` | Schedule task n to date     |
+| `bj write daily`       | Switch to daily log mode      |
+| `bj write monthly`     | Switch to monthly log mode    |
+| `bj month [month]`     | Navigate to specific month    |
 
 ---
 
