@@ -17,10 +17,11 @@ bj Buy groceries              # Add a task
 bj                            # List all tasks
 bj x 1                        # Mark task 1 as done
 bj del 2                      # Delete task 2
-bj schedule 3 1225            # Schedule task 3 to Dec 25
+bj schedule 3 12              # Schedule task 3 to December (future log)
 bj migrate                    # Move all incomplete tasks to next month
 bj date today                 # Go back to today
 bj write monthly              # Switch to monthly logs
+bj write future               # Switch to future log
 bj month 12                   # Navigate to December
 ```
 
@@ -121,23 +122,25 @@ When you migrate tasks, all incomplete tasks (`.`, `!`, `w`) from ALL daily logs
 
 ### Schedule Task
 ```bash
-bj schedule [n] [date]        # Schedule task n to specific date
+bj schedule [n] [MM|YYYYMM]   # Schedule task n to future log month
 ```
 
 **Examples:**
 ```bash
-bj schedule 1 1225            # Schedule task 1 to Dec 25
-                              # Today: <  2025-12-25: Buy presents
-                              # Dec 25: .  Buy presents
-bj schedule 3 20250315        # Schedule task 3 to Mar 15, 2025
-bj schedule 1 0101            # If task 1 already scheduled, does nothing
+bj schedule 1 12              # Schedule task 1 to December (current year)
+                              # Today: <  2025-12: Buy presents
+                              # 2025.md [DECEMBER]: .  Buy presents
+bj schedule 3 202601          # Schedule task 3 to January 2026
+                              # Today: <  2026-01: Project deadline
+                              # 2026.md [JANUARY]: .  Project deadline
 ```
 
 When you schedule a task:
-- **Current day:** Task is marked as `<` (scheduled) with timestamp prefix
-  - Format: `<  YYYY-MM-DD: task text`
-- **Target date:** Task becomes regular task `.` without timestamp
-  - Format: `.  task text`
+- **Current day:** Task is marked as `<` (scheduled) with YYYY-MM timestamp
+  - Format: `<  YYYY-MM: task text`
+- **Future log:** Task is added to the month section with original bullet type preserved
+  - Format: `[MONTH]` header followed by task with original bullet (`.`, `!`, `w`)
+- Original bullet type is preserved (task `.` stays `.`, priority `!` stays `!`, etc.)
 - If task is already scheduled (has timestamp), command does nothing
 
 ### Monthly Logs
@@ -162,6 +165,43 @@ bj write daily                # Switch back to daily mode
 - All bullet types work the same way (add notes, events, etc.)
 - Navigating to a specific date (`bj date`) automatically switches back to daily mode
 - The mode persists between sessions - use `bj write daily/monthly` to switch
+
+### Future Log
+```bash
+bj write future               # Switch to future log mode
+bj schedule [n] [MM|YYYYMM]   # Schedule tasks to future log
+```
+
+**Examples:**
+```bash
+bj write future               # View current year's future log
+bj schedule 2 12              # Schedule task 2 to December
+bj schedule 3 202601          # Schedule task 3 to January 2026
+```
+
+**Future Log Features:**
+- One file per year (YYYY.md) for long-term planning
+- Months organized with headers like [JANUARY], [FEBRUARY], etc.
+- Schedule tasks to specific months using `bj schedule`
+- Tasks preserve their original bullet type when scheduled
+- Perfect for planning future events, deadlines, and goals
+
+**Example Future Log Structure (2025.md):**
+```markdown
+# 2025
+
+[JANUARY]
+!  Q1 planning meeting
+
+[FEBRUARY]
+
+[MARCH]
+.  File taxes
+
+[DECEMBER]
+o  Year-end review
+.  Holiday shopping
+```
 
 ## Bullet Types
 
@@ -246,7 +286,8 @@ bj del 4                      # Remove from list
 
 - Daily tasks are stored in: `~/bj/YYYY-MM-DD.md`
 - Monthly logs are stored in: `~/bj/YYYY-MM.md`
-- Each day/month gets its own file
+- Future logs are stored in: `~/bj/YYYY.md`
+- Each day/month/year gets its own file
 - Files are plain markdown - easy to read/edit manually
 
 **Example daily file (`~/bj/2025-11-30.md`):**
@@ -266,6 +307,20 @@ o  Team meeting 3pm
 -  Completed major project refactor
 -  Team grew to 5 members
 o  Holiday party on Dec 20
+```
+
+**Example future log file (`~/bj/2025.md`):**
+```markdown
+# 2025
+
+[JANUARY]
+!  Q1 planning
+
+[MARCH]
+.  File taxes
+
+[DECEMBER]
+o  Year-end review
 ```
 
 ## Configuration
@@ -295,9 +350,10 @@ export BJ_HOME=/path/to/journal
 | `bj date today`        | Go to today                   |
 | `bj date [date]`       | Go to specific date           |
 | `bj migrate`           | Migrate all incomplete tasks to next month |
-| `bj schedule [n] [date]` | Schedule task n to date     |
+| `bj schedule [n] [MM\|YYYYMM]` | Schedule task to future log month |
 | `bj write daily`       | Switch to daily log mode      |
 | `bj write monthly`     | Switch to monthly log mode    |
+| `bj write future`      | Switch to future log mode     |
 | `bj month [month]`     | Navigate to specific month    |
 
 ---
