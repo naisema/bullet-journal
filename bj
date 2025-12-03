@@ -11,6 +11,7 @@ readonly BJ_DIR="${BJ_HOME:-$HOME/bj}"
 readonly CACHE_FILE="$BJ_DIR/.current_date"
 readonly CACHE_MODE="$BJ_DIR/.current_mode"
 readonly CACHE_MONTH="$BJ_DIR/.current_month"
+readonly CACHE_YEAR="$BJ_DIR/.current_year"
 
 # Bullet type constants
 readonly BULLET_TASK="."
@@ -73,13 +74,30 @@ set_current_month() {
     echo "$1" > "$CACHE_MONTH"
 }
 
+# Get current working year
+get_current_year() {
+    if [[ -f "$CACHE_YEAR" ]]; then
+        cat "$CACHE_YEAR"
+    else
+        date +%Y
+    fi
+}
+
+# Set current working year
+set_current_year() {
+    echo "$1" > "$CACHE_YEAR"
+}
+
 CURRENT_DATE=$(get_current_date)
 CURRENT_MODE=$(get_current_mode)
 CURRENT_MONTH=$(get_current_month)
+CURRENT_YEAR=$(get_current_year)
 
 # Set FILE based on mode
 if [[ "$CURRENT_MODE" == "monthly" ]]; then
     FILE="$BJ_DIR/$CURRENT_MONTH.md"
+elif [[ "$CURRENT_MODE" == "future" ]]; then
+    FILE="$BJ_DIR/$CURRENT_YEAR.md"
 else
     FILE="$BJ_DIR/$CURRENT_DATE.md"
 fi
@@ -88,6 +106,8 @@ fi
 if [[ ! -f "$FILE" ]]; then
     if [[ "$CURRENT_MODE" == "monthly" ]]; then
         echo "# $CURRENT_MONTH" > "$FILE"
+    elif [[ "$CURRENT_MODE" == "future" ]]; then
+        echo "# $CURRENT_YEAR" > "$FILE"
     else
         echo "# $CURRENT_DATE" > "$FILE"
     fi
@@ -223,11 +243,90 @@ ensure_file() {
     fi
 }
 
+# Helper: Get month name from number (01-12)
+get_month_name() {
+    local month_num="$1"
+    case "$month_num" in
+        01) echo "JANUARY" ;;
+        02) echo "FEBRUARY" ;;
+        03) echo "MARCH" ;;
+        04) echo "APRIL" ;;
+        05) echo "MAY" ;;
+        06) echo "JUNE" ;;
+        07) echo "JULY" ;;
+        08) echo "AUGUST" ;;
+        09) echo "SEPTEMBER" ;;
+        10) echo "OCTOBER" ;;
+        11) echo "NOVEMBER" ;;
+        12) echo "DECEMBER" ;;
+        *) echo "UNKNOWN" ;;
+    esac
+}
+
+# Helper: Ensure month section exists in future log
+ensure_month_section() {
+    local file_path="$1"
+    local month_name="$2"
+
+    # Check if month header exists
+    if ! grep -q "^\[${month_name}\]$" "$file_path" 2>/dev/null; then
+        # Add month header at the end
+        echo "" >> "$file_path"
+        echo "[${month_name}]" >> "$file_path"
+    fi
+}
+
+# Helper: Add task to month section in future log
+add_to_month_section() {
+    local file_path="$1"
+    local month_name="$2"
+    local task_text="$3"
+
+    # Ensure month section exists
+    ensure_month_section "$file_path" "$month_name"
+
+    # Read the entire file into an array
+    local lines=()
+    local in_target_section=false
+    local inserted=false
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Check if we're at the target month header
+        if [[ "$line" == "[${month_name}]" ]]; then
+            lines+=("$line")
+            in_target_section=true
+            continue
+        fi
+
+        # Check if we hit another month header while in target section
+        if [[ "$in_target_section" == "true" ]] && [[ "$line" =~ ^\[.*\]$ ]]; then
+            # Insert before this next header
+            lines+=("$task_text")
+            lines+=("$line")
+            inserted=true
+            in_target_section=false
+            continue
+        fi
+
+        lines+=("$line")
+    done < "$file_path"
+
+    # If we didn't insert yet (no next header found), add at end
+    if [[ "$inserted" == "false" ]] && [[ "$in_target_section" == "true" ]]; then
+        lines+=("$task_text")
+    fi
+
+    # Write back to file
+    printf "%s\n" "${lines[@]}" > "$file_path"
+}
+
 # List tasks (without line numbers)
 list() {
     # Show header based on mode
     if [[ "$CURRENT_MODE" == "monthly" ]]; then
         echo "[Monthly] $(show_month_header "$CURRENT_MONTH")"
+    elif [[ "$CURRENT_MODE" == "future" ]]; then
+        echo "[Future Log] $CURRENT_YEAR"
     else
         echo "[Daily] $(show_date_header "$CURRENT_DATE")"
     fi
@@ -238,6 +337,8 @@ list() {
     if [[ -z "$entries" ]]; then
         if [[ "$CURRENT_MODE" == "monthly" ]]; then
             echo "No monthly logs."
+        elif [[ "$CURRENT_MODE" == "future" ]]; then
+            echo "No future log entries."
         else
             echo "No tasks."
         fi
@@ -455,14 +556,27 @@ schedule() {
     local num="$1"
     local date_arg="$2"
 
-    # Parse and validate date
-    local target_date
-    target_date=$(parse_date "$date_arg") || exit 1
-    validate_date "$target_date" || exit 1
+    # Parse date argument to get year and month
+    local target_year
+    local target_month
 
-    # Check if target date is in the past
-    if [[ "$target_date" < "$CURRENT_DATE" ]]; then
-        echo "Error: Cannot schedule to past date ($target_date)" >&2
+    if [[ "$date_arg" =~ ^[0-9]{6}$ ]]; then
+        # YYYYMM format
+        target_year="${date_arg:0:4}"
+        target_month="${date_arg:4:2}"
+    elif [[ "$date_arg" =~ ^[0-9]{2}$ ]]; then
+        # MM format - use current year
+        target_year="$(date +%Y)"
+        target_month="$date_arg"
+    else
+        echo "Error: Invalid date format" >&2
+        echo "Use MM (e.g., 12) or YYYYMM (e.g., 202601)" >&2
+        exit 1
+    fi
+
+    # Validate month
+    if [[ $target_month -lt 1 ]] || [[ $target_month -gt 12 ]]; then
+        echo "Error: Invalid month '$target_month' (must be 01-12)" >&2
         exit 1
     fi
 
@@ -470,41 +584,51 @@ schedule() {
     local actual_line
     actual_line=$(get_task_line "$num") || exit 1
 
-    # Get the task text
+    # Get the task line with bullet
     local task_line
     task_line=$(sed -n "${actual_line}p" "$FILE")
+
+    # Extract bullet type
+    local bullet_type
+    bullet_type=$(echo "$task_line" | sed -E "s/^[[:space:]]*([.!xoaw><-])[[:space:]].*/\1/")
+
+    # Extract task text
     local task_text
     task_text=$(echo "$task_line" | sed -E "s/^[[:space:]]*${BULLET_PATTERN}[[:space:]]*//")
 
-    # Check if task already has a timestamp (YYYY-MM-DD: format)
-    if [[ "$task_text" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}:[[:space:]] ]]; then
+    # Check if task already scheduled
+    if [[ "$task_text" =~ ^[0-9]{4}-[0-9]{2}:[[:space:]] ]]; then
         echo "Task already scheduled: ${BULLET_SCHEDULED}  $task_text"
         exit 0
     fi
 
-    # Create target file if needed
-    local target_file="$BJ_DIR/$target_date.md"
-    ensure_file "$target_file" "$target_date"
+    # Create future log file if needed
+    local target_file="$BJ_DIR/${target_year}.md"
+    ensure_file "$target_file" "$target_year"
 
-    # Add timestamp prefix for current day
-    local scheduled_text="$target_date: $task_text"
+    # Get month name
+    local month_name
+    month_name=$(get_month_name "$target_month")
 
-    # Add as regular task (.) on target date (without timestamp)
-    echo "${BULLET_TASK}  $task_text" >> "$target_file"
+    # Add task to month section with original bullet type
+    add_to_month_section "$target_file" "$month_name" "${bullet_type}  ${task_text}"
+
+    # Format target date as YYYY-MM
+    local target_date="${target_year}-${target_month}"
 
     # Change bullet to < and add timestamp in current file
-    sed_inplace "${actual_line}s/^[[:space:]]*${BULLET_PATTERN}[[:space:]]*/${BULLET_SCHEDULED}  $target_date: /" "$FILE"
+    sed_inplace "${actual_line}s/^[[:space:]]*[.!xoaw><-][[:space:]]*/${BULLET_SCHEDULED}  ${target_date}: /" "$FILE"
 
-    echo "Scheduled to $target_date: ${BULLET_SCHEDULED}  $scheduled_text"
+    echo "Scheduled to $month_name $target_year: ${BULLET_SCHEDULED}  ${target_date}: ${task_text}"
 }
 
 # Switch write mode
 write_mode() {
     local mode="$1"
 
-    if [[ "$mode" != "daily" ]] && [[ "$mode" != "monthly" ]]; then
+    if [[ "$mode" != "daily" ]] && [[ "$mode" != "monthly" ]] && [[ "$mode" != "future" ]]; then
         echo "Error: Invalid mode '$mode'" >&2
-        echo "Valid modes: daily, monthly" >&2
+        echo "Valid modes: daily, monthly, future" >&2
         exit 1
     fi
 
@@ -517,6 +641,13 @@ write_mode() {
         FILE="$BJ_DIR/$CURRENT_MONTH.md"
         ensure_file "$FILE" "$CURRENT_MONTH"
         CURRENT_MODE="monthly"
+    elif [[ "$mode" == "future" ]]; then
+        echo "Switched to future log mode"
+        # Initialize current year if not set
+        CURRENT_YEAR=$(get_current_year)
+        FILE="$BJ_DIR/$CURRENT_YEAR.md"
+        ensure_file "$FILE" "$CURRENT_YEAR"
+        CURRENT_MODE="future"
     else
         echo "Switched to daily log mode"
         # Re-initialize to current date
@@ -569,7 +700,7 @@ help() {
 bj - Minimal Bullet Journal
 
 USAGE:
-  bj                  List tasks (daily or monthly based on mode)
+  bj                  List tasks (daily/monthly/future based on mode)
   bj [text]           Add task (default: .)
   bj [bullet] [text]  Add task with bullet
   bj [bullet] [n]     Change task n to bullet
@@ -577,9 +708,10 @@ USAGE:
   bj date today       Go to today
   bj date [date]      Go to specific date
   bj migrate          Migrate incomplete tasks from current month to next month
-  bj schedule [n] [date]  Schedule task n to date
+  bj schedule [n] [MM|YYYYMM]  Schedule task n to future log month
   bj write daily      Switch to daily log mode
   bj write monthly    Switch to monthly log mode
+  bj write future     Switch to future log mode
   bj month [month]    Navigate to specific month (auto-switches to monthly mode)
 
 BULLETS:
@@ -595,8 +727,10 @@ EXAMPLES:
   bj del 3            # Delete task 3
   bj date 1225        # Go to Dec 25
   bj migrate          # Migrate all incomplete tasks to next month
-  bj schedule 2 1225  # Schedule task 2 to Dec 25
+  bj schedule 2 12    # Schedule task 2 to December (future log)
+  bj schedule 3 202601 # Schedule task 3 to January 2026 (future log)
   bj write monthly    # Switch to monthly logs
+  bj write future     # Switch to future log
   bj month 12         # Navigate to December
   bj month 202601     # Navigate to January 2026
   bj write daily      # Switch back to daily logs
