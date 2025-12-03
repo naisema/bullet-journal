@@ -188,12 +188,31 @@ change() {
     local actual_line
     actual_line=$(get_task_line "$num") || exit 1
 
+    # Get current task and show what will change
+    local old_line
+    old_line=$(sed -n "${actual_line}p" "$FILE")
+
+    # Preview the change
+    local task_text
+    task_text=$(echo "$old_line" | sed -E "s/^[[:space:]]*${BULLET_PATTERN}[[:space:]]*//" )
+    local new_preview="$new_bullet  $task_text"
+
+    echo "Change: $old_line"
+    echo "To:     $new_preview"
+    read -p "Are you sure? (y/N): " -n 1 -r
+    echo
+
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Cancelled."
+        exit 0
+    fi
+
     # Change the bullet - strip leading spaces and ensure consistent format
     sed_inplace "${actual_line}s/^[[:space:]]*${BULLET_PATTERN}/$new_bullet/" "$FILE"
 
     local new_line
     new_line=$(sed -n "${actual_line}p" "$FILE")
-    echo "$new_line"
+    echo "Changed: $new_line"
 }
 
 # Delete task
