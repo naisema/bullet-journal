@@ -427,10 +427,8 @@ migrate() {
     echo "$all_incomplete"
     echo ""
 
-    # Change bullets to > (migrated) and append to target file
-    local migrated
-    migrated=$(echo "$all_incomplete" | sed "s/^[[:space:]]*${INCOMPLETE_PATTERN}/${BULLET_MIGRATED}/")
-    echo "$migrated" >> "$target_file"
+    # Keep original bullets and append to target file (preserve ., !, w)
+    echo "$all_incomplete" >> "$target_file"
 
     # Update each source file - change incomplete to migrated
     for file in "${files_with_tasks[@]}"; do

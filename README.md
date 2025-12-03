@@ -110,11 +110,12 @@ bj migrate                    # Move all incomplete tasks from current month to 
 
 When you migrate tasks, all incomplete tasks (`.`, `!`, `w`) from ALL daily logs in the current month are:
 - Changed to `>` (migrated) in their original day files
-- Copied as `>` to next month's monthly log file (YYYY-MM.md)
+- Copied to next month's monthly log file (YYYY-MM.md) with their original bullet type preserved
 
 **Migration behavior:**
 - Collects incomplete tasks from all days in the current month (e.g., all 2025-12-*.md files)
-- Migrates them to next month's monthly log (e.g., 2026-01.md)
+- Migrates them to next month's monthly log (e.g., 2026-01.md) keeping original bullets (`.`, `!`, `w`)
+- Original files show `>` to indicate migration
 - Already migrated tasks (`>`) are NOT migrated again
 - Scheduled tasks (`<`) are NOT migrated since they are already scheduled for a specific date
 
