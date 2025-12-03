@@ -61,13 +61,15 @@ bj [bullet] [number]          # Change task number to new bullet
 
 **Examples:**
 ```bash
-bj x 1                        # Mark task 1 as done
+bj x 1                        # Mark task 1 as done (asks for confirmation)
 bj a 2                        # Mark task 2 as abandoned
 bj w 3                        # Mark task 3 as waiting
 bj ! 4                        # Mark task 4 as priority
 bj o 5                        # Mark task 5 as event
 bj - 6                        # Mark task 6 as note
 ```
+
+**Note:** Changing task status requires confirmation to prevent accidental changes. You'll see a preview and must confirm with 'y' to proceed.
 
 ### Delete Task
 ```bash
@@ -196,14 +198,14 @@ bj o Lunch with team 12pm
 bj ! Review pull request
 bj - Check meeting notes from yesterday
 
-# Change priority
+# Change priority (requires confirmation)
 bj ! 1                        # Make task 1 priority
 
-# Mark some done
+# Mark some done (requires confirmation)
 bj x 2                        # Lunch done
 bj x 3                        # PR reviewed
 
-# Abandon task
+# Abandon task (requires confirmation)
 bj a 4                        # Not needed anymore
 
 # Delete task
