@@ -18,7 +18,7 @@ bj                            # List all tasks
 bj x 1                        # Mark task 1 as done
 bj del 2                      # Delete task 2
 bj schedule 3 1225            # Schedule task 3 to Dec 25
-bj migrate                    # Move incomplete tasks to tomorrow
+bj migrate                    # Move all incomplete tasks to next month
 bj date today                 # Go back to today
 bj write monthly              # Switch to monthly logs
 bj month 12                   # Navigate to December
@@ -100,19 +100,23 @@ bj date 20250315              # Go to March 15, 2025
 
 ### Migrate Tasks
 ```bash
-bj migrate                    # Migrate incomplete tasks to tomorrow
+bj migrate                    # Migrate incomplete tasks to next month
 ```
 
 **Example:**
 ```bash
-bj migrate                    # Move incomplete tasks to tomorrow
+bj migrate                    # Move all incomplete tasks from current month to next month
 ```
 
-When you migrate tasks, incomplete tasks (`.`, `!`, `w`) are:
-- Changed to `>` (migrated) in the current day
-- Copied as `>` to tomorrow
+When you migrate tasks, all incomplete tasks (`.`, `!`, `w`) from ALL daily logs in the current month are:
+- Changed to `>` (migrated) in their original day files
+- Copied as `>` to next month's monthly log file (YYYY-MM.md)
 
-**Note:** Scheduled tasks (`<`) are NOT migrated since they are already scheduled for a specific date.
+**Migration behavior:**
+- Collects incomplete tasks from all days in the current month (e.g., all 2025-12-*.md files)
+- Migrates them to next month's monthly log (e.g., 2026-01.md)
+- Already migrated tasks (`>`) are NOT migrated again
+- Scheduled tasks (`<`) are NOT migrated since they are already scheduled for a specific date
 
 ### Schedule Task
 ```bash
@@ -210,9 +214,9 @@ bj
 #  x  Standup meeting 10am
 #  .  Call client
 
-# Move incomplete tasks to tomorrow
+# End of month - migrate incomplete tasks
 bj migrate
-# Migrates task 2 (Finish presentation) and task 4 (Call client)
+# Collects all incomplete tasks from current month and moves to next month's log
 ```
 
 ### Task Management
@@ -289,7 +293,7 @@ export BJ_HOME=/path/to/journal
 | `bj del [n]`           | Delete task n                 |
 | `bj date today`        | Go to today                   |
 | `bj date [date]`       | Go to specific date           |
-| `bj migrate`           | Migrate tasks to tomorrow     |
+| `bj migrate`           | Migrate all incomplete tasks to next month |
 | `bj schedule [n] [date]` | Schedule task n to date     |
 | `bj write daily`       | Switch to daily log mode      |
 | `bj write monthly`     | Switch to monthly log mode    |
