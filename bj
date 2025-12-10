@@ -1159,7 +1159,7 @@ search() {
                 if [[ -n "$matches" ]]; then
                     while IFS= read -r line; do
                         if [[ -n "$line" ]]; then
-                            echo "M:${month_name}-${year}     ${line}" | sed 's/^[[:space:]]*//' | sed 's/  */ /g'
+                            echo "M:${month_name:0:3}-${year}     ${line}" | sed 's/^[[:space:]]*//' | sed 's/  */ /g'
                             ((found_count++))
                         fi
                     done <<< "$matches"
@@ -1218,7 +1218,7 @@ search() {
                     fi
 
                     if [[ "$match" == true ]] && [[ -n "$current_month" ]]; then
-                        echo "F:${current_month}-${year}     ${line}" | sed 's/^[[:space:]]*//' | sed 's/  */ /g'
+                        echo "F:${current_month:0:3}-${year}     ${line}" | sed 's/^[[:space:]]*//' | sed 's/  */ /g'
                         ((found_count++))
                     fi
                 done < "$file"

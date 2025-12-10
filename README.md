@@ -237,8 +237,8 @@ bj search o '*' 2025          # Search for events in all months of 2025
 **Search results format:**
 ```bash
 D:2025-10-11     x  migration task          # Daily log
-M:JAN-2025       .  migration #2             # Monthly log
-F:FEB-2026       !  migration #3             # Future log
+M:JAN-2025       .  migration #2            # Monthly log
+F:FEB-2026       !  migration #3            # Future log
 ```
 
 **Search features:**
