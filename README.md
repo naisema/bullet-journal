@@ -19,7 +19,8 @@ bj x 1                        # Mark task 1 as done
 bj del 2                      # Delete task 2
 bj schedule 3 12              # Schedule task 3 to December (future log)
 bj migrate                    # Move all incomplete tasks to next month
-bj date today                 # Go back to today
+bj goto today                 # Go back to today
+bj goto dec 25                # Go to December 25
 bj write monthly              # Switch to monthly logs
 bj write future               # Switch to future log
 bj month 12                   # Navigate to December
@@ -110,16 +111,28 @@ bj del 1                      # Delete task 1 (asks for confirmation)
 
 ### Date Navigation
 ```bash
-bj date today                 # Go to today
-bj date [date]                # Go to specific date
+bj goto today                 # Go to today
+bj goto DD                    # Go to day DD of current month
+bj goto MONTH                 # Go to MONTH of current year (monthly log)
+bj goto MONTH DD              # Go to MONTH DD of current year
+bj goto MONTH DD YEAR         # Go to MONTH DD of YEAR
 ```
 
 **Examples:**
 ```bash
-bj date today                 # Back to today
-bj date 1225                  # Go to December 25 of current year
-bj date 20250315              # Go to March 15, 2025
+bj goto today                 # Go to today
+bj goto 01                    # Go to day 1 of current month
+bj goto dec                   # Go to December (monthly log)
+bj goto dec 25                # Go to December 25 of current year
+bj goto dec 25 2026           # Go to December 25, 2026
 ```
+
+**Date Navigation Features:**
+- Month names are case-insensitive (dec, Dec, DEC all work)
+- Supports both short (jan, feb, dec) and full month names (january, february, december)
+- Day numbers are automatically padded (1 becomes 01)
+- Navigating to a specific date automatically switches to daily mode
+- Navigating to a month only (e.g., `bj goto dec`) switches to monthly log mode
 
 ### Migrate Tasks
 ```bash
@@ -185,7 +198,8 @@ bj write daily                # Switch back to daily mode
 - Use monthly logs for high-level reflections, goals, or summaries
 - Monthly logs are stored separately from daily entries
 - All bullet types work the same way (add notes, events, etc.)
-- Navigating to a specific date (`bj date`) automatically switches back to daily mode
+- Navigating to a specific date (`bj goto MONTH DD`) automatically switches back to daily mode
+- Navigating to a month only (`bj goto MONTH`) switches to monthly log mode
 - The mode persists between sessions - use `bj write daily/monthly` to switch
 
 ### Future Log
@@ -372,8 +386,10 @@ export BJ_HOME=/path/to/journal
 | `bj [bullet] [text]`   | Add task/note with bullet     |
 | `bj [bullet] [n]`      | Change task n to bullet       |
 | `bj del [n]`           | Delete task n                 |
-| `bj date today`        | Go to today                   |
-| `bj date [date]`       | Go to specific date           |
+| `bj goto today`        | Go to today                   |
+| `bj goto DD`           | Go to day DD of current month |
+| `bj goto MONTH`        | Go to MONTH (monthly log)     |
+| `bj goto MONTH DD [YEAR]` | Go to specific date        |
 | `bj migrate`           | Migrate all incomplete tasks to next month |
 | `bj schedule [n] [MM\|YYYYMM]` | Schedule task to future log month |
 | `bj write daily`       | Switch to daily log mode      |

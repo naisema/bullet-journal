@@ -581,6 +581,133 @@ navigate() {
     fi
 }
 
+# Goto navigation with flexible date parsing
+goto_navigation() {
+    local arg1="${1:-}"
+    local arg2="${2:-}"
+    local arg3="${3:-}"
+
+    # Case 1: goto today or no args
+    if [[ -z "$arg1" ]] || [[ "$arg1" == "today" ]]; then
+        local today_date=$(date +%Y-%m-%d)
+        set_current_date "$today_date"
+        set_current_mode "daily"
+
+        local target_file="$BJ_DIR/$today_date.md"
+        ensure_file "$target_file" "$today_date"
+
+        FILE="$target_file"
+        CURRENT_DATE="$today_date"
+        CURRENT_MODE="daily"
+
+        show_date_header "$today_date"
+        local entries
+        entries=$(grep -v "^#" "$target_file" | grep -v "^$" || true)
+        if [[ -z "$entries" ]]; then
+            echo "No tasks."
+        else
+            echo "$entries" | sed 's/^[[:space:]]*//'
+        fi
+        return 0
+    fi
+
+    # Case 2: goto DD (day in current month)
+    if [[ "$arg1" =~ ^[0-9]{1,2}$ ]] && [[ -z "$arg2" ]]; then
+        local day=$(printf "%02d" "$arg1")
+        local current_month=$(date +%Y-%m)
+        local target_date="${current_month}-${day}"
+
+        validate_date "$target_date" || exit 1
+
+        set_current_date "$target_date"
+        set_current_mode "daily"
+
+        local target_file="$BJ_DIR/$target_date.md"
+        ensure_file "$target_file" "$target_date"
+
+        FILE="$target_file"
+        CURRENT_DATE="$target_date"
+        CURRENT_MODE="daily"
+
+        show_date_header "$target_date"
+        local entries
+        entries=$(grep -v "^#" "$target_file" | grep -v "^$" || true)
+        if [[ -z "$entries" ]]; then
+            echo "No tasks."
+        else
+            echo "$entries" | sed 's/^[[:space:]]*//'
+        fi
+        return 0
+    fi
+
+    # Check if arg1 is a month name
+    local month_num
+    month_num=$(get_month_number "$arg1")
+
+    if [[ -n "$month_num" ]]; then
+        # Case 3: goto MONTH (monthly log)
+        if [[ -z "$arg2" ]]; then
+            local year=$(date +%Y)
+            local target_month="${year}-${month_num}"
+
+            set_current_month "$target_month"
+            set_current_mode "monthly"
+
+            local target_file="$BJ_DIR/$target_month.md"
+            ensure_file "$target_file" "$target_month"
+
+            FILE="$target_file"
+            CURRENT_MONTH="$target_month"
+            CURRENT_MODE="monthly"
+
+            echo "[Monthly] $(show_month_header "$target_month")"
+            local entries
+            entries=$(grep -v "^#" "$target_file" | grep -v "^$" || true)
+            if [[ -z "$entries" ]]; then
+                echo "No monthly logs."
+            else
+                echo "$entries" | sed 's/^[[:space:]]*//'
+            fi
+            return 0
+        fi
+
+        # Case 4: goto MONTH DD [YEAR] (daily log)
+        if [[ "$arg2" =~ ^[0-9]{1,2}$ ]]; then
+            local day=$(printf "%02d" "$arg2")
+            local year="${arg3:-$(date +%Y)}"
+            local target_date="${year}-${month_num}-${day}"
+
+            validate_date "$target_date" || exit 1
+
+            set_current_date "$target_date"
+            set_current_mode "daily"
+
+            local target_file="$BJ_DIR/$target_date.md"
+            ensure_file "$target_file" "$target_date"
+
+            FILE="$target_file"
+            CURRENT_DATE="$target_date"
+            CURRENT_MODE="daily"
+
+            show_date_header "$target_date"
+            local entries
+            entries=$(grep -v "^#" "$target_file" | grep -v "^$" || true)
+            if [[ -z "$entries" ]]; then
+                echo "No tasks."
+            else
+                echo "$entries" | sed 's/^[[:space:]]*//'
+            fi
+            return 0
+        fi
+    fi
+
+    # Invalid arguments
+    echo "Error: Invalid goto arguments" >&2
+    echo "Usage: bj goto [today|DD|MONTH|MONTH DD [YEAR]]" >&2
+    echo "Examples: bj goto today, bj goto 01, bj goto dec, bj goto dec 01, bj goto dec 01 2026" >&2
+    exit 1
+}
+
 # Migrate tasks
 migrate() {
     # Get current month (YYYY-MM)
@@ -820,8 +947,11 @@ USAGE:
   bj [bullet] [text]  Add task with bullet
   bj [bullet] [n]     Change task n to bullet
   bj del [n]          Delete task n
-  bj date today       Go to today
-  bj date [date]      Go to specific date
+  bj goto today       Go to today
+  bj goto DD          Go to day DD of current month
+  bj goto MONTH       Go to MONTH of current year (monthly log)
+  bj goto MONTH DD    Go to MONTH DD of current year
+  bj goto MONTH DD YEAR Go to MONTH DD of YEAR
   bj migrate          Migrate incomplete tasks from current month to next month
   bj schedule [n] [MM|YYYYMM]  Schedule task n to future log month
   bj write daily      Switch to daily log mode
@@ -845,7 +975,11 @@ EXAMPLES:
   bj o Meeting at 3pm # Add event
   bj x 1              # Mark task 1 as done
   bj del 3            # Delete task 3
-  bj date 1225        # Go to Dec 25
+  bj goto today       # Go to today
+  bj goto 01          # Go to day 1 of current month
+  bj goto dec         # Go to December (monthly log)
+  bj goto dec 25      # Go to December 25
+  bj goto dec 25 2026 # Go to December 25, 2026
   bj migrate          # Migrate all incomplete tasks to next month
   bj schedule 2 12    # Schedule task 2 to December (future log)
   bj schedule 3 202601 # Schedule task 3 to January 2026 (future log)
@@ -894,6 +1028,14 @@ case "$1" in
             exit 1
         fi
         navigate "$2"
+        exit 0
+        ;;
+    goto)
+        if [[ $# -lt 1 ]] || [[ $# -gt 4 ]]; then
+            echo "Usage: bj goto [today|DD|MONTH|MONTH DD [YEAR]]"
+            exit 1
+        fi
+        goto_navigation "${2:-}" "${3:-}" "${4:-}"
         exit 0
         ;;
     migrate)
