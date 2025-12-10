@@ -1064,6 +1064,10 @@ search() {
                 exit 1
             fi
             search_month="$month_num"
+            # Default to current year if month is specified but year is not
+            if [[ -z "$search_year" ]]; then
+                search_year=$(date +%Y)
+            fi
         fi
     fi
 
