@@ -20,6 +20,7 @@ bj del 2                      # Delete task 2
 bj schedule 3 dec             # Schedule task 3 to December (future log)
 bj migrate                    # Move incomplete tasks to next working day
 bj migrate 1 jan              # Move task 1 to January monthly log
+bj search meeting             # Search for "meeting" in all logs
 bj goto today                 # Go back to today
 bj goto dec 25                # Go to December 25
 bj write monthly              # Switch to monthly logs
@@ -216,6 +217,37 @@ bj write daily                # Switch back to daily mode
 - Navigating to a month only (`bj goto MONTH`) switches to monthly log mode
 - The mode persists between sessions - use `bj write daily/monthly` to switch
 
+### Search Tasks
+```bash
+bj search PATTERN             # Search for text/bullet in all logs
+bj search PATTERN MONTH       # Search in MONTH daily logs (current year)
+bj search PATTERN MONTH YEAR  # Search in MONTH daily logs of YEAR
+bj search PATTERN * YEAR      # Search in all daily logs of YEAR
+```
+
+**Examples:**
+```bash
+bj search migration           # Search for "migration" in all logs
+bj search ! dec               # Search for priority tasks in December daily logs
+bj search x                   # Search for completed tasks in all logs
+bj search w dec 2026          # Search for waiting tasks in December 2026
+bj search o '*' 2025          # Search for events in all months of 2025
+```
+
+**Search results format:**
+```bash
+D:2025-10-11     x  migration task          # Daily log
+M:JAN-2025       .  migration #2             # Monthly log
+F:FEB-2026       !  migration #3             # Future log
+```
+
+**Search features:**
+- **Text search**: Case-insensitive search for any text in tasks
+- **Bullet search**: Search by bullet type (., !, x, o, a, w, >, <, -)
+- **Scope control**: Search all logs, specific month, or specific year
+- **Multiple log types**: Searches daily, monthly, and future logs
+- **Clear results**: Shows log type (D:/M:/F:) and date for each match
+
 ### Future Log
 ```bash
 bj write future               # Switch to future log mode
@@ -406,6 +438,7 @@ export BJ_HOME=/path/to/journal
 | `bj goto MONTH DD [YEAR]` | Go to specific date        |
 | `bj migrate [*\|N] [MONTH] [YEAR]` | Migrate tasks to next working day or monthly log |
 | `bj schedule [n] MONTH [YEAR]` | Schedule task to future log month |
+| `bj search PATTERN [MONTH\|*] [YEAR]` | Search for tasks in logs |
 | `bj write daily`       | Switch to daily log mode      |
 | `bj write monthly`     | Switch to monthly log mode    |
 | `bj write future`      | Switch to future log mode     |

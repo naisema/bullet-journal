@@ -1025,6 +1025,215 @@ schedule() {
     echo "Scheduled to $month_name $target_year: ${BULLET_SCHEDULED}  ${target_date}: ${task_text}"
 }
 
+# Search tasks
+search() {
+    local pattern="$1"
+    local month_arg="${2:-}"
+    local year_arg="${3:-}"
+
+    # Check if pattern is a bullet type
+    local is_bullet=false
+    case "$pattern" in
+        .|!|x|o|a|w|\>|\<|-)
+            is_bullet=true
+            ;;
+    esac
+
+    # Determine scope
+    local search_year=""
+    local search_month=""
+
+    if [[ -n "$year_arg" ]]; then
+        if [[ ! "$year_arg" =~ ^[0-9]{4}$ ]]; then
+            echo "Error: Invalid year '$year_arg' (must be 4 digits)" >&2
+            exit 1
+        fi
+        search_year="$year_arg"
+    fi
+
+    if [[ -n "$month_arg" ]]; then
+        if [[ "$month_arg" == "*" ]]; then
+            # Search all months
+            search_month="*"
+        else
+            # Parse month name
+            local month_num
+            month_num=$(get_month_number "$month_arg")
+            if [[ -z "$month_num" ]]; then
+                echo "Error: Invalid month '$month_arg'" >&2
+                exit 1
+            fi
+            search_month="$month_num"
+        fi
+    fi
+
+    local found_count=0
+
+    # Search in daily logs
+    if [[ -n "$search_month" ]] || [[ -z "$month_arg" ]]; then
+        if [[ -n "$search_year" ]] && [[ -n "$search_month" ]] && [[ "$search_month" != "*" ]]; then
+            # Search specific month in specific year
+            local files
+            files=$(ls "$BJ_DIR/${search_year}-${search_month}"-*.md 2>/dev/null || true)
+        elif [[ -n "$search_year" ]] && [[ "$search_month" == "*" ]]; then
+            # Search all months in specific year
+            local files
+            files=$(ls "$BJ_DIR/${search_year}"-*-*.md 2>/dev/null || true)
+        elif [[ -z "$month_arg" ]] && [[ -z "$year_arg" ]]; then
+            # Search all daily logs
+            local files
+            files=$(ls "$BJ_DIR"/????-??-??.md 2>/dev/null || true)
+        else
+            local files=""
+        fi
+
+        if [[ -n "$files" ]]; then
+            while IFS= read -r file; do
+                if [[ -z "$file" ]]; then
+                    continue
+                fi
+
+                # Extract date from filename (YYYY-MM-DD.md)
+                local filename=$(basename "$file" .md)
+
+                # Search in file
+                local matches
+                if [[ "$is_bullet" == true ]]; then
+                    matches=$(grep -E "^[[:space:]]*${pattern}[[:space:]]" "$file" 2>/dev/null || true)
+                else
+                    matches=$(grep -i "$pattern" "$file" | grep -v "^#" 2>/dev/null || true)
+                fi
+
+                if [[ -n "$matches" ]]; then
+                    while IFS= read -r line; do
+                        if [[ -n "$line" ]]; then
+                            echo "D:${filename}     ${line}" | sed 's/^[[:space:]]*//' | sed 's/  */ /g'
+                            ((found_count++))
+                        fi
+                    done <<< "$matches"
+                fi
+            done <<< "$files"
+        fi
+    fi
+
+    # Search in monthly logs
+    if [[ -z "$month_arg" ]] || [[ -n "$search_month" ]]; then
+        if [[ -n "$search_year" ]] && [[ -n "$search_month" ]] && [[ "$search_month" != "*" ]]; then
+            # Search specific month in specific year
+            local files="$BJ_DIR/${search_year}-${search_month}.md"
+            if [[ ! -f "$files" ]]; then
+                files=""
+            fi
+        elif [[ -n "$search_year" ]] && [[ "$search_month" == "*" ]]; then
+            # Search all months in specific year
+            local files
+            files=$(ls "$BJ_DIR/${search_year}"-??.md 2>/dev/null || true)
+        elif [[ -z "$month_arg" ]] && [[ -z "$year_arg" ]]; then
+            # Search all monthly logs
+            local files
+            files=$(ls "$BJ_DIR"/????-??.md 2>/dev/null || true)
+        else
+            local files=""
+        fi
+
+        if [[ -n "$files" ]]; then
+            while IFS= read -r file; do
+                if [[ -z "$file" ]] || [[ ! -f "$file" ]]; then
+                    continue
+                fi
+
+                # Extract YYYY-MM from filename
+                local filename=$(basename "$file" .md)
+                local year="${filename:0:4}"
+                local month="${filename:5:2}"
+                local month_name=$(get_month_name "$month")
+
+                # Search in file
+                local matches
+                if [[ "$is_bullet" == true ]]; then
+                    matches=$(grep -E "^[[:space:]]*${pattern}[[:space:]]" "$file" 2>/dev/null || true)
+                else
+                    matches=$(grep -i "$pattern" "$file" | grep -v "^#" 2>/dev/null || true)
+                fi
+
+                if [[ -n "$matches" ]]; then
+                    while IFS= read -r line; do
+                        if [[ -n "$line" ]]; then
+                            echo "M:${month_name}-${year}     ${line}" | sed 's/^[[:space:]]*//' | sed 's/  */ /g'
+                            ((found_count++))
+                        fi
+                    done <<< "$matches"
+                fi
+            done <<< "$files"
+        fi
+    fi
+
+    # Search in future logs
+    if [[ -z "$month_arg" ]] || [[ "$search_month" == "*" ]]; then
+        if [[ -n "$search_year" ]]; then
+            # Search specific year future log
+            local files="$BJ_DIR/${search_year}.md"
+            if [[ ! -f "$files" ]]; then
+                files=""
+            fi
+        else
+            # Search all future logs
+            local files
+            files=$(ls "$BJ_DIR"/????.md 2>/dev/null || true)
+        fi
+
+        if [[ -n "$files" ]]; then
+            while IFS= read -r file; do
+                if [[ -z "$file" ]] || [[ ! -f "$file" ]]; then
+                    continue
+                fi
+
+                # Extract year from filename
+                local year=$(basename "$file" .md)
+
+                # Read file and track current month section
+                local current_month=""
+                while IFS= read -r line; do
+                    # Check if this is a month header
+                    if [[ "$line" =~ ^\[([A-Z]+)\]$ ]]; then
+                        current_month="${BASH_REMATCH[1]}"
+                        continue
+                    fi
+
+                    # Skip empty lines and file headers
+                    if [[ -z "$line" ]] || [[ "$line" =~ ^# ]]; then
+                        continue
+                    fi
+
+                    # Search in task line
+                    local match=false
+                    if [[ "$is_bullet" == true ]]; then
+                        if echo "$line" | grep -qE "^[[:space:]]*${pattern}[[:space:]]"; then
+                            match=true
+                        fi
+                    else
+                        if echo "$line" | grep -qi "$pattern"; then
+                            match=true
+                        fi
+                    fi
+
+                    if [[ "$match" == true ]] && [[ -n "$current_month" ]]; then
+                        echo "F:${current_month}-${year}     ${line}" | sed 's/^[[:space:]]*//' | sed 's/  */ /g'
+                        ((found_count++))
+                    fi
+                done < "$file"
+            done <<< "$files"
+        fi
+    fi
+
+    if [[ $found_count -eq 0 ]]; then
+        echo "No matches found."
+    else
+        echo ""
+        echo "Found $found_count match(es)."
+    fi
+}
+
 # Switch write mode
 write_mode() {
     local mode="$1"
@@ -1087,6 +1296,7 @@ USAGE:
   bj goto MONTH DD YEAR Go to MONTH DD of YEAR
   bj migrate          Migrate incomplete tasks from current month to next month
   bj schedule [n] MONTH [YEAR]  Schedule task n to future log month
+  bj search PATTERN [MONTH|*] [YEAR]  Search for tasks
   bj write daily      Switch to daily log mode
   bj write monthly    Switch to monthly log mode
   bj write future     Switch to future log mode
@@ -1115,6 +1325,9 @@ EXAMPLES:
   bj migrate          # Migrate all incomplete tasks to next month
   bj schedule 2 dec   # Schedule task 2 to December (future log)
   bj schedule 3 jan 2026 # Schedule task 3 to January 2026 (future log)
+  bj search migration # Search for "migration" in all logs
+  bj search ! dec     # Search for priority tasks in December daily logs
+  bj search x         # Search for completed tasks in all logs
   bj write monthly    # Switch to monthly logs
   bj write future     # Switch to future log
   bj write daily      # Switch back to daily logs
@@ -1182,6 +1395,14 @@ case "$1" in
             exit 1
         fi
         schedule "$2" "$3" "${4:-}"
+        exit 0
+        ;;
+    search)
+        if [[ $# -lt 2 ]] || [[ $# -gt 4 ]]; then
+            echo "Usage: bj search PATTERN [MONTH|*] [YEAR]"
+            exit 1
+        fi
+        search "$2" "${3:-}" "${4:-}"
         exit 0
         ;;
     write)
