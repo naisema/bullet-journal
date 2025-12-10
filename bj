@@ -1114,9 +1114,9 @@ search() {
                             echo "D:${filename}     ${line}" | sed 's/^[[:space:]]*//' | sed 's/  */ /g'
                             ((found_count++))
                         fi
-                    done <<< "$matches"
+                    done < <(printf '%s\n' "$matches")
                 fi
-            done <<< "$files"
+            done < <(printf '%s\n' "$files")
         fi
     fi
 
@@ -1166,9 +1166,9 @@ search() {
                             echo "M:${month_name:0:3}-${year}     ${line}" | sed 's/^[[:space:]]*//' | sed 's/  */ /g'
                             ((found_count++))
                         fi
-                    done <<< "$matches"
+                    done < <(printf '%s\n' "$matches")
                 fi
-            done <<< "$files"
+            done < <(printf '%s\n' "$files")
         fi
     fi
 
@@ -1226,7 +1226,7 @@ search() {
                         ((found_count++))
                     fi
                 done < "$file"
-            done <<< "$files"
+            done < <(printf '%s\n' "$files")
         fi
     fi
 
