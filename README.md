@@ -29,8 +29,30 @@ bj month 12                   # Navigate to December
 
 ### List Tasks
 ```bash
-bj                            # Show today's tasks
+bj                            # List tasks in current write mode
+bj list DD                    # List daily log for day DD of current month
+bj list MONTH                 # List monthly log for MONTH of current year
+bj list MONTH YEAR            # List monthly log for MONTH of YEAR
+bj list future                # List future log for current year
+bj list future YEAR           # List future log for YEAR
 ```
+
+**Examples:**
+```bash
+bj                            # List tasks in current mode
+bj list 01                    # List daily log for Dec 1st
+bj list 15                    # List daily log for Dec 15th
+bj list dec                   # List December 2025 monthly log
+bj list jan 2026              # List January 2026 monthly log
+bj list future                # List 2025 future log
+bj list future 2026           # List 2026 future log
+```
+
+**List Command Features:**
+- View any log without switching write modes
+- Month names are case-insensitive (dec, Dec, DEC all work)
+- Supports both short (jan, feb, dec) and full month names (january, february, december)
+- Day numbers are automatically padded (1 becomes 01)
 
 ### Add Task
 ```bash
@@ -343,6 +365,9 @@ export BJ_HOME=/path/to/journal
 | Command                | Action                        |
 |------------------------|-------------------------------|
 | `bj`                   | List tasks/logs (current mode)|
+| `bj list DD`           | List daily log for day DD     |
+| `bj list MONTH [YEAR]` | List monthly log              |
+| `bj list future [YEAR]` | List future log              |
 | `bj [text]`            | Add task/note                 |
 | `bj [bullet] [text]`   | Add task/note with bullet     |
 | `bj [bullet] [n]`      | Change task n to bullet       |
