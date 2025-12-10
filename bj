@@ -263,6 +263,28 @@ get_month_name() {
     esac
 }
 
+# Helper: Get month number from month name (case-insensitive)
+get_month_number() {
+    local month_name="$1"
+    local month_lower=$(echo "$month_name" | tr '[:upper:]' '[:lower:]')
+
+    case "$month_lower" in
+        jan|january) echo "01" ;;
+        feb|february) echo "02" ;;
+        mar|march) echo "03" ;;
+        apr|april) echo "04" ;;
+        may) echo "05" ;;
+        jun|june) echo "06" ;;
+        jul|july) echo "07" ;;
+        aug|august) echo "08" ;;
+        sep|september) echo "09" ;;
+        oct|october) echo "10" ;;
+        nov|november) echo "11" ;;
+        dec|december) echo "12" ;;
+        *) echo "" ;;
+    esac
+}
+
 # Helper: Ensure month section exists in future log
 ensure_month_section() {
     local file_path="$1"
@@ -346,6 +368,94 @@ list() {
         # Strip leading spaces for consistent alignment
         echo "$entries" | sed 's/^[[:space:]]*//'
     fi
+}
+
+# List logs from specific date/month/year
+list_logs() {
+    local arg1="$1"
+    local arg2="${2:-}"
+
+    # Check if arg1 is "future"
+    if [[ "$arg1" == "future" ]]; then
+        local year="${arg2:-$(date +%Y)}"
+        local future_file="$BJ_DIR/${year}.md"
+
+        if [[ ! -f "$future_file" ]]; then
+            echo "[Future Log] $year"
+            echo "No future log for $year."
+            return 0
+        fi
+
+        echo "[Future Log] $year"
+        local entries
+        entries=$(grep -v "^#" "$future_file" | grep -v "^$" || true)
+
+        if [[ -z "$entries" ]]; then
+            echo "No future log entries."
+        else
+            echo "$entries" | sed 's/^[[:space:]]*//'
+        fi
+        return 0
+    fi
+
+    # Check if arg1 is a day number (01-31)
+    if [[ "$arg1" =~ ^[0-9]{1,2}$ ]]; then
+        # Pad to 2 digits
+        local day=$(printf "%02d" "$arg1")
+        local current_month=$(date +%Y-%m)
+        local target_date="${current_month}-${day}"
+        local daily_file="$BJ_DIR/${target_date}.md"
+
+        if [[ ! -f "$daily_file" ]]; then
+            echo "[Daily] $(show_date_header "$target_date")"
+            echo "No tasks."
+            return 0
+        fi
+
+        echo "[Daily] $(show_date_header "$target_date")"
+        local entries
+        entries=$(grep -v "^#" "$daily_file" | grep -v "^$" || true)
+
+        if [[ -z "$entries" ]]; then
+            echo "No tasks."
+        else
+            echo "$entries" | sed 's/^[[:space:]]*//'
+        fi
+        return 0
+    fi
+
+    # Check if arg1 is a month name
+    local month_num
+    month_num=$(get_month_number "$arg1")
+
+    if [[ -n "$month_num" ]]; then
+        local year="${arg2:-$(date +%Y)}"
+        local target_month="${year}-${month_num}"
+        local monthly_file="$BJ_DIR/${target_month}.md"
+
+        if [[ ! -f "$monthly_file" ]]; then
+            echo "[Monthly] $(show_month_header "$target_month")"
+            echo "No monthly logs."
+            return 0
+        fi
+
+        echo "[Monthly] $(show_month_header "$target_month")"
+        local entries
+        entries=$(grep -v "^#" "$monthly_file" | grep -v "^$" || true)
+
+        if [[ -z "$entries" ]]; then
+            echo "No monthly logs."
+        else
+            echo "$entries" | sed 's/^[[:space:]]*//'
+        fi
+        return 0
+    fi
+
+    # Invalid argument
+    echo "Error: Invalid list argument '$arg1'" >&2
+    echo "Usage: bj list DD | bj list MONTH [YEAR] | bj list future [YEAR]" >&2
+    echo "Examples: bj list 01, bj list dec, bj list dec 2026, bj list future 2026" >&2
+    exit 1
 }
 
 # Add task
@@ -700,7 +810,12 @@ help() {
 bj - Minimal Bullet Journal
 
 USAGE:
-  bj                  List tasks (daily/monthly/future based on mode)
+  bj                  List tasks in current write mode
+  bj list DD          List daily log for day DD of current month
+  bj list MONTH       List monthly log for MONTH of current year
+  bj list MONTH YEAR  List monthly log for MONTH of YEAR
+  bj list future      List future log for current year
+  bj list future YEAR List future log for YEAR
   bj [text]           Add task (default: .)
   bj [bullet] [text]  Add task with bullet
   bj [bullet] [n]     Change task n to bullet
@@ -721,6 +836,11 @@ BULLETS:
 
 EXAMPLES:
   bj                  # List tasks in current mode
+  bj list 01          # List daily log for Dec 1st
+  bj list dec         # List monthly log for December
+  bj list dec 2026    # List monthly log for December 2026
+  bj list future      # List future log for current year
+  bj list future 2026 # List future log for 2026
   bj Buy milk         # Add task ". Buy milk"
   bj o Meeting at 3pm # Add event
   bj x 1              # Mark task 1 as done
@@ -750,6 +870,14 @@ case "$1" in
         ;;
     -v|--version|version)
         echo "bj version $VERSION"
+        exit 0
+        ;;
+    list)
+        if [[ $# -lt 2 ]] || [[ $# -gt 3 ]]; then
+            echo "Usage: bj list DD | bj list MONTH [YEAR] | bj list future [YEAR]"
+            exit 1
+        fi
+        list_logs "$2" "${3:-}"
         exit 0
         ;;
     del)
