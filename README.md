@@ -24,7 +24,6 @@ bj goto today                 # Go back to today
 bj goto dec 25                # Go to December 25
 bj write monthly              # Switch to monthly logs
 bj write future               # Switch to future log
-bj month 12                   # Navigate to December
 ```
 
 ## Commands
@@ -198,15 +197,13 @@ When you schedule a task:
 ```bash
 bj write daily                # Switch to daily log mode
 bj write monthly              # Switch to monthly log mode
-bj month [month]              # Navigate to specific month
 ```
 
 **Examples:**
 ```bash
 bj write monthly              # Switch to monthly logs
 bj - Completed project X      # Add note to current month
-bj month 12                   # Navigate to December (current year)
-bj month 202601               # Navigate to January 2026
+bj goto dec                   # Navigate to December monthly log
 bj write daily                # Switch back to daily mode
 ```
 
@@ -411,7 +408,6 @@ export BJ_HOME=/path/to/journal
 | `bj write daily`       | Switch to daily log mode      |
 | `bj write monthly`     | Switch to monthly log mode    |
 | `bj write future`      | Switch to future log mode     |
-| `bj month [month]`     | Navigate to specific month    |
 
 ---
 
