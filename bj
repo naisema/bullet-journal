@@ -958,30 +958,29 @@ migrate() {
 # Schedule task to specific date
 schedule() {
     local num="$1"
-    local date_arg="$2"
+    local month_arg="$2"
+    local year_arg="${3:-}"
 
-    # Parse date argument to get year and month
-    local target_year
+    # Parse month name to month number
     local target_month
+    target_month=$(get_month_number "$month_arg")
 
-    if [[ "$date_arg" =~ ^[0-9]{6}$ ]]; then
-        # YYYYMM format
-        target_year="${date_arg:0:4}"
-        target_month="${date_arg:4:2}"
-    elif [[ "$date_arg" =~ ^[0-9]{2}$ ]]; then
-        # MM format - use current year
-        target_year="$(date +%Y)"
-        target_month="$date_arg"
-    else
-        echo "Error: Invalid date format" >&2
-        echo "Use MM (e.g., 12) or YYYYMM (e.g., 202601)" >&2
+    if [[ -z "$target_month" ]]; then
+        echo "Error: Invalid month '$month_arg'" >&2
+        echo "Use month name (e.g., dec, january) or short form (jan, feb, etc.)" >&2
         exit 1
     fi
 
-    # Validate month
-    if [[ $target_month -lt 1 ]] || [[ $target_month -gt 12 ]]; then
-        echo "Error: Invalid month '$target_month' (must be 01-12)" >&2
-        exit 1
+    # Use provided year or current year
+    local target_year
+    if [[ -n "$year_arg" ]]; then
+        if [[ ! "$year_arg" =~ ^[0-9]{4}$ ]]; then
+            echo "Error: Invalid year '$year_arg' (must be 4 digits)" >&2
+            exit 1
+        fi
+        target_year="$year_arg"
+    else
+        target_year="$(date +%Y)"
     fi
 
     # Get the task line
@@ -1087,7 +1086,7 @@ USAGE:
   bj goto MONTH DD    Go to MONTH DD of current year
   bj goto MONTH DD YEAR Go to MONTH DD of YEAR
   bj migrate          Migrate incomplete tasks from current month to next month
-  bj schedule [n] [MM|YYYYMM]  Schedule task n to future log month
+  bj schedule [n] MONTH [YEAR]  Schedule task n to future log month
   bj write daily      Switch to daily log mode
   bj write monthly    Switch to monthly log mode
   bj write future     Switch to future log mode
@@ -1114,8 +1113,8 @@ EXAMPLES:
   bj goto dec 25      # Go to December 25
   bj goto dec 25 2026 # Go to December 25, 2026
   bj migrate          # Migrate all incomplete tasks to next month
-  bj schedule 2 12    # Schedule task 2 to December (future log)
-  bj schedule 3 202601 # Schedule task 3 to January 2026 (future log)
+  bj schedule 2 dec   # Schedule task 2 to December (future log)
+  bj schedule 3 jan 2026 # Schedule task 3 to January 2026 (future log)
   bj write monthly    # Switch to monthly logs
   bj write future     # Switch to future log
   bj write daily      # Switch back to daily logs
@@ -1178,11 +1177,11 @@ case "$1" in
         exit 0
         ;;
     schedule)
-        if [[ $# -ne 3 ]]; then
-            echo "Usage: bj schedule [n] [MMDD | YYYYMMDD]"
+        if [[ $# -lt 3 ]] || [[ $# -gt 4 ]]; then
+            echo "Usage: bj schedule [n] MONTH [YEAR]"
             exit 1
         fi
-        schedule "$2" "$3"
+        schedule "$2" "$3" "${4:-}"
         exit 0
         ;;
     write)

@@ -17,7 +17,7 @@ bj Buy groceries              # Add a task
 bj                            # List all tasks
 bj x 1                        # Mark task 1 as done
 bj del 2                      # Delete task 2
-bj schedule 3 12              # Schedule task 3 to December (future log)
+bj schedule 3 dec             # Schedule task 3 to December (future log)
 bj migrate                    # Move incomplete tasks to next working day
 bj migrate 1 jan              # Move task 1 to January monthly log
 bj goto today                 # Go back to today
@@ -172,15 +172,16 @@ When migrating, the system will skip these dates and find the next working day.
 
 ### Schedule Task
 ```bash
-bj schedule [n] [MM|YYYYMM]   # Schedule task n to future log month
+bj schedule [n] MONTH         # Schedule task n to MONTH of current year
+bj schedule [n] MONTH YEAR    # Schedule task n to MONTH of YEAR
 ```
 
 **Examples:**
 ```bash
-bj schedule 1 12              # Schedule task 1 to December (current year)
+bj schedule 1 dec             # Schedule task 1 to December (current year)
                               # Today: <  2025-12: Buy presents
                               # 2025.md [DECEMBER]: .  Buy presents
-bj schedule 3 202601          # Schedule task 3 to January 2026
+bj schedule 3 jan 2026        # Schedule task 3 to January 2026
                               # Today: <  2026-01: Project deadline
                               # 2026.md [JANUARY]: .  Project deadline
 ```
@@ -218,14 +219,14 @@ bj write daily                # Switch back to daily mode
 ### Future Log
 ```bash
 bj write future               # Switch to future log mode
-bj schedule [n] [MM|YYYYMM]   # Schedule tasks to future log
+bj schedule [n] MONTH [YEAR]  # Schedule tasks to future log
 ```
 
 **Examples:**
 ```bash
 bj write future               # View current year's future log
-bj schedule 2 12              # Schedule task 2 to December
-bj schedule 3 202601          # Schedule task 3 to January 2026
+bj schedule 2 dec             # Schedule task 2 to December
+bj schedule 3 jan 2026        # Schedule task 3 to January 2026
 ```
 
 **Future Log Features:**
@@ -404,7 +405,7 @@ export BJ_HOME=/path/to/journal
 | `bj goto MONTH`        | Go to MONTH (monthly log)     |
 | `bj goto MONTH DD [YEAR]` | Go to specific date        |
 | `bj migrate [*\|N] [MONTH] [YEAR]` | Migrate tasks to next working day or monthly log |
-| `bj schedule [n] [MM\|YYYYMM]` | Schedule task to future log month |
+| `bj schedule [n] MONTH [YEAR]` | Schedule task to future log month |
 | `bj write daily`       | Switch to daily log mode      |
 | `bj write monthly`     | Switch to monthly log mode    |
 | `bj write future`      | Switch to future log mode     |
