@@ -12,6 +12,7 @@ readonly CACHE_FILE="$BJ_DIR/.current_date"
 readonly CACHE_MODE="$BJ_DIR/.current_mode"
 readonly CACHE_MONTH="$BJ_DIR/.current_month"
 readonly CACHE_YEAR="$BJ_DIR/.current_year"
+readonly HOLIDAYS_FILE="$BJ_DIR/.holidays"
 
 # Bullet type constants
 readonly BULLET_TASK="."
@@ -145,6 +146,69 @@ show_month_header() {
         month_header=$(date -d "$month_to_show-01" "+%Y %b" | tr '[:lower:]' '[:upper:]')
     fi
     echo "$month_header"
+}
+
+# Helper: Check if date is a holiday
+is_holiday() {
+    local check_date="$1"
+
+    if [[ ! -f "$HOLIDAYS_FILE" ]]; then
+        return 1  # No holidays file, so not a holiday
+    fi
+
+    # Check if date exists in holidays file
+    if grep -q "^${check_date}$" "$HOLIDAYS_FILE"; then
+        return 0  # Is a holiday
+    else
+        return 1  # Not a holiday
+    fi
+}
+
+# Helper: Check if date is a working day (Mon-Fri, not holiday)
+is_working_day() {
+    local check_date="$1"
+
+    # Get day of week (1=Mon, 7=Sun)
+    local day_of_week
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        day_of_week=$(date -j -f "%Y-%m-%d" "$check_date" "+%u")
+    else
+        day_of_week=$(date -d "$check_date" "+%u")
+    fi
+
+    # Check if weekend (6=Sat, 7=Sun)
+    if [[ "$day_of_week" -eq 6 ]] || [[ "$day_of_week" -eq 7 ]]; then
+        return 1  # Weekend
+    fi
+
+    # Check if holiday
+    if is_holiday "$check_date"; then
+        return 1  # Holiday
+    fi
+
+    return 0  # Is a working day
+}
+
+# Helper: Get next working day from given date
+get_next_working_day() {
+    local from_date="$1"
+    local next_date="$from_date"
+
+    # Keep adding days until we find a working day
+    while true; do
+        # Add one day
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            next_date=$(date -j -v+1d -f "%Y-%m-%d" "$next_date" "+%Y-%m-%d")
+        else
+            next_date=$(date -d "$next_date + 1 day" "+%Y-%m-%d")
+        fi
+
+        # Check if it's a working day
+        if is_working_day "$next_date"; then
+            echo "$next_date"
+            return 0
+        fi
+    done
 }
 
 # Helper: Get task line number in file
@@ -710,82 +774,219 @@ goto_navigation() {
 
 # Migrate tasks
 migrate() {
-    # Get current month (YYYY-MM)
-    local current_month="${CURRENT_DATE:0:7}"
+    local arg1="${1:-}"
+    local arg2="${2:-}"
+    local arg3="${3:-}"
 
-    # Calculate next month
-    local next_month
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        next_month=$(date -v+1m -j -f "%Y-%m" "$current_month" +%Y-%m)
-    else
-        next_month=$(date -d "$current_month-01 + 1 month" +%Y-%m)
+    # Check if we're in daily mode
+    if [[ "$CURRENT_MODE" != "daily" ]]; then
+        echo "Error: Migration only works in daily mode" >&2
+        exit 1
     fi
 
-    # Create target monthly log file
-    local target_file="$BJ_DIR/$next_month.md"
-    ensure_file "$target_file" "$next_month"
+    # Case 1: migrate * MONTH YEAR - Migrate all tasks from current month to monthly log
+    if [[ "$arg1" == "*" ]] && [[ -n "$arg2" ]]; then
+        local month_num
+        month_num=$(get_month_number "$arg2")
 
-    # Find all daily log files for current month
-    local month_files
-    month_files=$(ls "$BJ_DIR/$current_month"-*.md 2>/dev/null || true)
-
-    if [[ -z "$month_files" ]]; then
-        echo "No daily log files found for $current_month."
-        exit 0
-    fi
-
-    # Collect all incomplete tasks from all days in current month
-    local all_incomplete=""
-    local files_with_tasks=()
-
-    while IFS= read -r file; do
-        if [[ -z "$file" ]]; then
-            continue
+        if [[ -z "$month_num" ]]; then
+            echo "Error: Invalid month '$arg2'" >&2
+            exit 1
         fi
 
-        # Find incomplete tasks (., !, w) - exclude scheduled (<) and already migrated (>)
-        local incomplete
-        incomplete=$(grep -E "^[[:space:]]*${INCOMPLETE_PATTERN}[[:space:]]" "$file" || true)
+        local year="${arg3:-$(date +%Y)}"
+        local target_month="${year}-${month_num}"
+        local target_file="$BJ_DIR/$target_month.md"
+        ensure_file "$target_file" "$target_month"
 
-        if [[ -n "$incomplete" ]]; then
-            all_incomplete="${all_incomplete}${incomplete}"$'\n'
-            files_with_tasks+=("$file")
+        # Get current month
+        local current_month="${CURRENT_DATE:0:7}"
+        local month_files
+        month_files=$(ls "$BJ_DIR/$current_month"-*.md 2>/dev/null || true)
+
+        if [[ -z "$month_files" ]]; then
+            echo "No daily log files found for $current_month."
+            exit 0
         fi
-    done <<< "$month_files"
 
-    # Remove trailing newline
-    all_incomplete=$(echo "$all_incomplete" | sed '/^$/d')
+        # Collect all incomplete tasks from all days in current month
+        local all_incomplete=""
+        local files_with_tasks=()
 
-    if [[ -z "$all_incomplete" ]]; then
-        echo "No incomplete tasks to migrate from $current_month."
-        exit 0
+        while IFS= read -r file; do
+            if [[ -z "$file" ]]; then
+                continue
+            fi
+
+            local incomplete
+            incomplete=$(grep -E "^[[:space:]]*${INCOMPLETE_PATTERN}[[:space:]]" "$file" || true)
+
+            if [[ -n "$incomplete" ]]; then
+                all_incomplete="${all_incomplete}${incomplete}"$'\n'
+                files_with_tasks+=("$file")
+            fi
+        done <<< "$month_files"
+
+        all_incomplete=$(echo "$all_incomplete" | sed '/^$/d')
+
+        if [[ -z "$all_incomplete" ]]; then
+            echo "No incomplete tasks to migrate from $current_month."
+            exit 0
+        fi
+
+        echo "Migrating incomplete tasks from $current_month to $(show_month_header "$target_month") monthly log:"
+        echo "$all_incomplete"
+        echo ""
+
+        # Append to target file
+        echo "$all_incomplete" >> "$target_file"
+
+        # Update source files - mark as migrated
+        for file in "${files_with_tasks[@]}"; do
+            local incomplete
+            incomplete=$(grep -E "^[[:space:]]*${INCOMPLETE_PATTERN}[[:space:]]" "$file" || true)
+
+            while IFS= read -r line; do
+                if [[ -n "$line" ]]; then
+                    local escaped_line
+                    escaped_line=$(printf '%s\n' "$line" | sed 's/[]\/$*.^[]/\\&/g')
+                    local text_part
+                    text_part=$(echo "$line" | sed -E "s/^[[:space:]]*${INCOMPLETE_PATTERN}[[:space:]]*//")
+                    sed_inplace "s/^${escaped_line}$/${BULLET_MIGRATED}  ${text_part}/" "$file"
+                fi
+            done <<< "$incomplete"
+        done
+
+        echo "Migrated to $(show_month_header "$target_month") monthly log!"
+        return 0
     fi
 
-    echo "Migrating incomplete tasks from $current_month to $next_month monthly log:"
-    echo "$all_incomplete"
-    echo ""
+    # Case 2: migrate N MONTH - Migrate task N to monthly log
+    if [[ "$arg1" =~ ^[0-9]+$ ]] && [[ -n "$arg2" ]]; then
+        local month_num
+        month_num=$(get_month_number "$arg2")
 
-    # Keep original bullets and append to target file (preserve ., !, w)
-    echo "$all_incomplete" >> "$target_file"
+        if [[ -z "$month_num" ]]; then
+            echo "Error: Invalid month '$arg2'" >&2
+            exit 1
+        fi
 
-    # Update each source file - change incomplete to migrated
-    for file in "${files_with_tasks[@]}"; do
+        local year=$(date +%Y)
+        local target_month="${year}-${month_num}"
+        local target_file="$BJ_DIR/$target_month.md"
+        ensure_file "$target_file" "$target_month"
+
+        # Get the task line
+        local actual_line
+        actual_line=$(get_task_line "$arg1") || exit 1
+        local task_content
+        task_content=$(sed -n "${actual_line}p" "$FILE")
+
+        # Check if task is incomplete
+        if ! echo "$task_content" | grep -qE "^[[:space:]]*${INCOMPLETE_PATTERN}[[:space:]]"; then
+            echo "Error: Task $arg1 is not incomplete (must be ., !, or w)" >&2
+            exit 1
+        fi
+
+        echo "Migrating task $arg1 to $(show_month_header "$target_month") monthly log:"
+        echo "$task_content"
+
+        # Append to target file
+        echo "$task_content" >> "$target_file"
+
+        # Update source file - mark as migrated
+        local escaped_line
+        escaped_line=$(printf '%s\n' "$task_content" | sed 's/[]\/$*.^[]/\\&/g')
+        local text_part
+        text_part=$(echo "$task_content" | sed -E "s/^[[:space:]]*${INCOMPLETE_PATTERN}[[:space:]]*//")
+        sed_inplace "s/^${escaped_line}$/${BULLET_MIGRATED}  ${text_part}/" "$FILE"
+
+        echo "Migrated to $(show_month_header "$target_month") monthly log!"
+        return 0
+    fi
+
+    # Case 3: migrate N - Migrate task N to next working day
+    if [[ "$arg1" =~ ^[0-9]+$ ]] && [[ -z "$arg2" ]]; then
+        local next_day
+        next_day=$(get_next_working_day "$CURRENT_DATE")
+        local target_file="$BJ_DIR/$next_day.md"
+        ensure_file "$target_file" "$next_day"
+
+        # Get the task line
+        local actual_line
+        actual_line=$(get_task_line "$arg1") || exit 1
+        local task_content
+        task_content=$(sed -n "${actual_line}p" "$FILE")
+
+        # Check if task is incomplete
+        if ! echo "$task_content" | grep -qE "^[[:space:]]*${INCOMPLETE_PATTERN}[[:space:]]"; then
+            echo "Error: Task $arg1 is not incomplete (must be ., !, or w)" >&2
+            exit 1
+        fi
+
+        echo "Migrating task $arg1 to $(show_date_header "$next_day"):"
+        echo "$task_content"
+
+        # Append to target file
+        echo "$task_content" >> "$target_file"
+
+        # Update source file - mark as migrated
+        local escaped_line
+        escaped_line=$(printf '%s\n' "$task_content" | sed 's/[]\/$*.^[]/\\&/g')
+        local text_part
+        text_part=$(echo "$task_content" | sed -E "s/^[[:space:]]*${INCOMPLETE_PATTERN}[[:space:]]*//")
+        sed_inplace "s/^${escaped_line}$/${BULLET_MIGRATED}  ${text_part}/" "$FILE"
+
+        echo "Migrated to $(show_date_header "$next_day")!"
+        return 0
+    fi
+
+    # Case 4: migrate or migrate * - Migrate all tasks to next working day
+    if [[ -z "$arg1" ]] || [[ "$arg1" == "*" ]] && [[ -z "$arg2" ]]; then
+        local next_day
+        next_day=$(get_next_working_day "$CURRENT_DATE")
+        local target_file="$BJ_DIR/$next_day.md"
+        ensure_file "$target_file" "$next_day"
+
+        # Get all incomplete tasks
         local incomplete
-        incomplete=$(grep -E "^[[:space:]]*${INCOMPLETE_PATTERN}[[:space:]]" "$file" || true)
+        incomplete=$(grep -E "^[[:space:]]*${INCOMPLETE_PATTERN}[[:space:]]" "$FILE" || true)
 
+        if [[ -z "$incomplete" ]]; then
+            echo "No incomplete tasks to migrate."
+            exit 0
+        fi
+
+        echo "Migrating all incomplete tasks to $(show_date_header "$next_day"):"
+        echo "$incomplete"
+        echo ""
+
+        # Append to target file
+        echo "$incomplete" >> "$target_file"
+
+        # Update source file - mark as migrated
         while IFS= read -r line; do
             if [[ -n "$line" ]]; then
                 local escaped_line
                 escaped_line=$(printf '%s\n' "$line" | sed 's/[]\/$*.^[]/\\&/g')
-                # Strip leading spaces and replace bullet with >
                 local text_part
                 text_part=$(echo "$line" | sed -E "s/^[[:space:]]*${INCOMPLETE_PATTERN}[[:space:]]*//")
-                sed_inplace "s/^${escaped_line}$/${BULLET_MIGRATED}  ${text_part}/" "$file"
+                sed_inplace "s/^${escaped_line}$/${BULLET_MIGRATED}  ${text_part}/" "$FILE"
             fi
         done <<< "$incomplete"
-    done
 
-    echo "Migrated to $next_month monthly log!"
+        echo "Migrated to $(show_date_header "$next_day")!"
+        return 0
+    fi
+
+    echo "Error: Invalid migrate arguments" >&2
+    echo "Usage:" >&2
+    echo "  bj migrate              # Migrate all tasks to next working day" >&2
+    echo "  bj migrate *            # Migrate all tasks to next working day" >&2
+    echo "  bj migrate N            # Migrate task N to next working day" >&2
+    echo "  bj migrate N MONTH      # Migrate task N to MONTH monthly log" >&2
+    echo "  bj migrate * MONTH YEAR # Migrate all tasks from current month to MONTH YEAR monthly log" >&2
+    exit 1
 }
 
 # Schedule task to specific date
@@ -1039,11 +1240,11 @@ case "$1" in
         exit 0
         ;;
     migrate)
-        if [[ $# -ne 1 ]]; then
-            echo "Usage: bj migrate"
+        if [[ $# -lt 1 ]] || [[ $# -gt 4 ]]; then
+            echo "Usage: bj migrate [*|N] [MONTH] [YEAR]"
             exit 1
         fi
-        migrate
+        migrate "${2:-}" "${3:-}" "${4:-}"
         exit 0
         ;;
     schedule)

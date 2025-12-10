@@ -18,7 +18,8 @@ bj                            # List all tasks
 bj x 1                        # Mark task 1 as done
 bj del 2                      # Delete task 2
 bj schedule 3 12              # Schedule task 3 to December (future log)
-bj migrate                    # Move all incomplete tasks to next month
+bj migrate                    # Move incomplete tasks to next working day
+bj migrate 1 jan              # Move task 1 to January monthly log
 bj goto today                 # Go back to today
 bj goto dec 25                # Go to December 25
 bj write monthly              # Switch to monthly logs
@@ -136,24 +137,39 @@ bj goto dec 25 2026           # Go to December 25, 2026
 
 ### Migrate Tasks
 ```bash
-bj migrate                    # Migrate incomplete tasks to next month
+bj migrate                    # Migrate all incomplete tasks to next working day
+bj migrate *                  # Migrate all incomplete tasks to next working day
+bj migrate N                  # Migrate task N to next working day
+bj migrate N MONTH            # Migrate task N to MONTH monthly log
+bj migrate * MONTH YEAR       # Migrate all tasks from current month to MONTH YEAR monthly log
 ```
 
-**Example:**
+**Examples:**
 ```bash
-bj migrate                    # Move all incomplete tasks from current month to next month
+bj migrate                    # Move all incomplete tasks to next working day
+bj migrate '*'                # Move all incomplete tasks to next working day
+bj migrate 1                  # Move task 1 to next working day
+bj migrate 1 dec              # Move task 1 to December monthly log
+bj migrate '*' jan 2026       # Move all December tasks to January 2026 monthly log
 ```
-
-When you migrate tasks, all incomplete tasks (`.`, `!`, `w`) from ALL daily logs in the current month are:
-- Changed to `>` (migrated) in their original day files
-- Copied to next month's monthly log file (YYYY-MM.md) with their original bullet type preserved
 
 **Migration behavior:**
-- Collects incomplete tasks from all days in the current month (e.g., all 2025-12-*.md files)
-- Migrates them to next month's monthly log (e.g., 2026-01.md) keeping original bullets (`.`, `!`, `w`)
-- Original files show `>` to indicate migration
-- Already migrated tasks (`>`) are NOT migrated again
-- Scheduled tasks (`<`) are NOT migrated since they are already scheduled for a specific date
+- **Working days only**: Automatically skips weekends (Sat & Sun) and holidays
+- **Holidays**: Define holidays in `~/bj/.holidays` file (one date per line in YYYY-MM-DD format)
+- **Incomplete tasks**: Only migrates tasks with bullets `.` (task), `!` (priority), or `w` (waiting)
+- **Original bullets preserved**: Tasks keep their original bullet type when migrated
+- **Source marked as migrated**: Original tasks are marked with `>` bullet
+- **Already migrated tasks (`>`)**: NOT migrated again
+- **Scheduled tasks (`<`)**: NOT migrated since they are already scheduled
+
+**Working with holidays:**
+Create a `.holidays` file in your bj directory:
+```bash
+echo "2025-12-25" >> ~/bj/.holidays  # Christmas
+echo "2026-01-01" >> ~/bj/.holidays  # New Year
+```
+
+When migrating, the system will skip these dates and find the next working day.
 
 ### Schedule Task
 ```bash
@@ -291,9 +307,9 @@ bj
 #  x  Standup meeting 10am
 #  .  Call client
 
-# End of month - migrate incomplete tasks
-bj migrate
-# Collects all incomplete tasks from current month and moves to next month's log
+# Incomplete task - migrate to tomorrow
+bj migrate 2
+# Moves "Finish presentation" to next working day
 ```
 
 ### Task Management
@@ -390,7 +406,7 @@ export BJ_HOME=/path/to/journal
 | `bj goto DD`           | Go to day DD of current month |
 | `bj goto MONTH`        | Go to MONTH (monthly log)     |
 | `bj goto MONTH DD [YEAR]` | Go to specific date        |
-| `bj migrate`           | Migrate all incomplete tasks to next month |
+| `bj migrate [*\|N] [MONTH] [YEAR]` | Migrate tasks to next working day or monthly log |
 | `bj schedule [n] [MM\|YYYYMM]` | Schedule task to future log month |
 | `bj write daily`       | Switch to daily log mode      |
 | `bj write monthly`     | Switch to monthly log mode    |
