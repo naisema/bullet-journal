@@ -1027,6 +1027,9 @@ schedule() {
 
 # Search tasks
 search() {
+    # Temporarily disable set -e for this function
+    set +e
+
     local pattern="$1"
     local month_arg="${2:-}"
     local year_arg="${3:-}"
@@ -1092,31 +1095,43 @@ search() {
         fi
 
         if [[ -n "$files" ]]; then
-            while IFS= read -r file; do
+            # Process each file - use for loop with IFS
+            IFS=$'\n'
+            for file in $files; do
                 if [[ -z "$file" ]]; then
                     continue
                 fi
 
                 # Extract date from filename (YYYY-MM-DD.md)
-                local filename=$(basename "$file" .md)
+                filename=$(basename "$file" .md)
 
-                # Search in file
-                local matches
-                if [[ "$is_bullet" == true ]]; then
-                    matches=$(grep -E "^[[:space:]]*${pattern}[[:space:]]" "$file" 2>/dev/null || true)
-                else
-                    matches=$(grep -i "$pattern" "$file" | grep -v "^#" 2>/dev/null || true)
-                fi
+                # Read file line by line and check for matches
+                while IFS= read -r line || [[ -n "$line" ]]; do
+                    # Skip headers and empty lines
+                    if [[ -z "$line" ]] || [[ "$line" =~ ^# ]]; then
+                        continue
+                    fi
 
-                if [[ -n "$matches" ]]; then
-                    while IFS= read -r line; do
-                        if [[ -n "$line" ]]; then
-                            echo "D:${filename}     ${line}" | sed 's/^[[:space:]]*//' | sed 's/  */ /g'
-                            ((found_count++))
+                    # Check if line matches
+                    match=false
+                    if [[ "$is_bullet" == true ]]; then
+                        # Check if line starts with the bullet
+                        if echo "$line" | grep -qE "^[[:space:]]*${pattern}[[:space:]]"; then
+                            match=true
                         fi
-                    done < <(printf '%s\n' "$matches")
-                fi
-            done < <(printf '%s\n' "$files")
+                    else
+                        # Case-insensitive text search
+                        if echo "$line" | grep -qi "$pattern"; then
+                            match=true
+                        fi
+                    fi
+
+                    if [[ "$match" == true ]]; then
+                        echo "D:${filename}     ${line}" | sed 's/^[[:space:]]*//' | sed 's/  */ /g'
+                        ((found_count++))
+                    fi
+                done < "$file"
+            done
         fi
     fi
 
@@ -1141,34 +1156,44 @@ search() {
         fi
 
         if [[ -n "$files" ]]; then
-            while IFS= read -r file; do
+            # Process each file - use for loop with IFS
+            IFS=$'\n'
+            for file in $files; do
                 if [[ -z "$file" ]] || [[ ! -f "$file" ]]; then
                     continue
                 fi
 
                 # Extract YYYY-MM from filename
-                local filename=$(basename "$file" .md)
-                local year="${filename:0:4}"
-                local month="${filename:5:2}"
-                local month_name=$(get_month_name "$month")
+                filename=$(basename "$file" .md)
+                year="${filename:0:4}"
+                month="${filename:5:2}"
+                month_name=$(get_month_name "$month")
 
-                # Search in file
-                local matches
-                if [[ "$is_bullet" == true ]]; then
-                    matches=$(grep -E "^[[:space:]]*${pattern}[[:space:]]" "$file" 2>/dev/null || true)
-                else
-                    matches=$(grep -i "$pattern" "$file" | grep -v "^#" 2>/dev/null || true)
-                fi
+                # Read file line by line and check for matches
+                while IFS= read -r line || [[ -n "$line" ]]; do
+                    # Skip headers and empty lines
+                    if [[ -z "$line" ]] || [[ "$line" =~ ^# ]]; then
+                        continue
+                    fi
 
-                if [[ -n "$matches" ]]; then
-                    while IFS= read -r line; do
-                        if [[ -n "$line" ]]; then
-                            echo "M:${month_name:0:3}-${year}     ${line}" | sed 's/^[[:space:]]*//' | sed 's/  */ /g'
-                            ((found_count++))
+                    # Check if line matches
+                    match=false
+                    if [[ "$is_bullet" == true ]]; then
+                        if echo "$line" | grep -qE "^[[:space:]]*${pattern}[[:space:]]"; then
+                            match=true
                         fi
-                    done < <(printf '%s\n' "$matches")
-                fi
-            done < <(printf '%s\n' "$files")
+                    else
+                        if echo "$line" | grep -qi "$pattern"; then
+                            match=true
+                        fi
+                    fi
+
+                    if [[ "$match" == true ]]; then
+                        echo "M:${month_name:0:3}-${year}     ${line}" | sed 's/^[[:space:]]*//' | sed 's/  */ /g'
+                        ((found_count++))
+                    fi
+                done < "$file"
+            done
         fi
     fi
 
@@ -1187,17 +1212,19 @@ search() {
         fi
 
         if [[ -n "$files" ]]; then
-            while IFS= read -r file; do
+            # Process each file - use for loop with IFS
+            IFS=$'\n'
+            for file in $files; do
                 if [[ -z "$file" ]] || [[ ! -f "$file" ]]; then
                     continue
                 fi
 
                 # Extract year from filename
-                local year=$(basename "$file" .md)
+                year=$(basename "$file" .md)
 
                 # Read file and track current month section
-                local current_month=""
-                while IFS= read -r line; do
+                current_month=""
+                while IFS= read -r line || [[ -n "$line" ]]; do
                     # Check if this is a month header
                     if [[ "$line" =~ ^\[([A-Z]+)\]$ ]]; then
                         current_month="${BASH_REMATCH[1]}"
@@ -1205,12 +1232,11 @@ search() {
                     fi
 
                     # Skip empty lines and file headers
-                    if [[ -z "$line" ]] || [[ "$line" =~ ^# ]]; then
-                        continue
-                    fi
+                    [[ -z "$line" ]] && continue
+                    [[ "$line" =~ ^# ]] && continue
 
                     # Search in task line
-                    local match=false
+                    match=false
                     if [[ "$is_bullet" == true ]]; then
                         if echo "$line" | grep -qE "^[[:space:]]*${pattern}[[:space:]]"; then
                             match=true
@@ -1226,7 +1252,7 @@ search() {
                         ((found_count++))
                     fi
                 done < "$file"
-            done < <(printf '%s\n' "$files")
+            done
         fi
     fi
 
@@ -1236,6 +1262,9 @@ search() {
         echo ""
         echo "Found $found_count match(es)."
     fi
+
+    # Re-enable set -e
+    set -e
 }
 
 # Switch write mode
