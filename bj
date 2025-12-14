@@ -424,6 +424,7 @@ add_to_month_section() {
 
 # List tasks (without line numbers)
 list() {
+    clear
     # Show header based on mode
     if [[ "$CURRENT_MODE" == "monthly" ]]; then
         echo "[Monthly] $(show_month_header "$CURRENT_MONTH")"
@@ -452,6 +453,7 @@ list() {
 
 # List logs from specific date/month/year
 list_logs() {
+    clear
     local arg1="$1"
     local arg2="${2:-}"
 
@@ -1079,6 +1081,7 @@ schedule() {
 search() {
     # Temporarily disable set -e for this function
     set +e
+    clear
 
     local pattern="$1"
     local month_arg="${2:-}"
