@@ -7,12 +7,13 @@ set -euo pipefail
 
 # Constants
 readonly VERSION="1.0.0"
-readonly BJ_DIR="${BJ_HOME:-$HOME/bj}"
-readonly CACHE_FILE="$BJ_DIR/.current_date"
-readonly CACHE_MODE="$BJ_DIR/.current_mode"
-readonly CACHE_MONTH="$BJ_DIR/.current_month"
-readonly CACHE_YEAR="$BJ_DIR/.current_year"
-readonly HOLIDAYS_FILE="$BJ_DIR/.holidays"
+readonly BJ_ROOT="${BJ_HOME:-$HOME/bj}"
+readonly CACHE_WORKSPACE="$BJ_ROOT/.current_workspace"
+readonly CACHE_FILE="$BJ_ROOT/.current_date"
+readonly CACHE_MODE="$BJ_ROOT/.current_mode"
+readonly CACHE_MONTH="$BJ_ROOT/.current_month"
+readonly CACHE_YEAR="$BJ_ROOT/.current_year"
+readonly HOLIDAYS_FILE="$BJ_ROOT/.holidays"
 
 # Bullet type constants
 readonly BULLET_TASK="."
@@ -31,6 +32,55 @@ readonly INCOMPLETE_PATTERN='[.!w]'
 readonly ADD_BULLET_PATTERN='[.!o-]'
 readonly CHANGE_BULLET_PATTERN='[!xoaw-]'
 
+# Initialize BJ_ROOT directory
+mkdir -p "$BJ_ROOT"
+
+# Get current workspace
+get_current_workspace() {
+    if [[ -f "$CACHE_WORKSPACE" ]]; then
+        cat "$CACHE_WORKSPACE"
+    else
+        echo "default"
+    fi
+}
+
+# Set current workspace
+set_current_workspace() {
+    echo "$1" > "$CACHE_WORKSPACE"
+}
+
+# Get workspace directory
+get_workspace_dir() {
+    local workspace="${1:-$(get_current_workspace)}"
+    echo "$BJ_ROOT/$workspace"
+}
+
+# Migrate existing files to default workspace (one-time migration)
+migrate_to_workspaces() {
+    # Check if migration is needed (md files in root, no default/ directory)
+    local md_files
+    md_files=$(ls "$BJ_ROOT"/*.md 2>/dev/null || true)
+
+    if [[ -n "$md_files" ]] && [[ ! -d "$BJ_ROOT/default" ]]; then
+        echo "Migrating existing files to 'default' workspace..."
+        mkdir -p "$BJ_ROOT/default"
+
+        # Move all .md files to default workspace
+        for file in "$BJ_ROOT"/*.md; do
+            if [[ -f "$file" ]]; then
+                mv "$file" "$BJ_ROOT/default/"
+            fi
+        done
+
+        echo "Migration complete! All existing files are now in the 'default' workspace."
+    fi
+}
+
+# Run migration check
+migrate_to_workspaces
+
+# Set BJ_DIR to current workspace directory
+readonly BJ_DIR="$(get_workspace_dir)"
 mkdir -p "$BJ_DIR"
 
 # Get current working date
@@ -1306,6 +1356,70 @@ write_mode() {
     list
 }
 
+# Workspace management
+workspace_cmd() {
+    local subcmd="${1:-}"
+    local workspace_name="${2:-}"
+
+    case "$subcmd" in
+        "")
+            # Show current workspace
+            local current=$(get_current_workspace)
+            echo "Current workspace: $current"
+            ;;
+        list)
+            # List all workspaces
+            echo "Available workspaces:"
+            for dir in "$BJ_ROOT"/*/; do
+                if [[ -d "$dir" ]]; then
+                    local ws=$(basename "$dir")
+                    local current=$(get_current_workspace)
+                    if [[ "$ws" == "$current" ]]; then
+                        echo "* $ws (current)"
+                    else
+                        echo "  $ws"
+                    fi
+                fi
+            done
+            ;;
+        new)
+            # Create new workspace
+            if [[ -z "$workspace_name" ]]; then
+                echo "Error: Workspace name required" >&2
+                echo "Usage: bj workspace new <name>" >&2
+                exit 1
+            fi
+
+            local ws_dir="$BJ_ROOT/$workspace_name"
+            if [[ -d "$ws_dir" ]]; then
+                echo "Workspace '$workspace_name' already exists"
+            else
+                mkdir -p "$ws_dir"
+                echo "Created workspace: $workspace_name"
+            fi
+            ;;
+        *)
+            # Switch to workspace (create if doesn't exist)
+            workspace_name="$subcmd"
+
+            if [[ -z "$workspace_name" ]]; then
+                echo "Error: Workspace name required" >&2
+                echo "Usage: bj workspace <name>" >&2
+                exit 1
+            fi
+
+            local ws_dir="$BJ_ROOT/$workspace_name"
+            if [[ ! -d "$ws_dir" ]]; then
+                mkdir -p "$ws_dir"
+                echo "Created new workspace: $workspace_name"
+            fi
+
+            set_current_workspace "$workspace_name"
+            echo "Switched to workspace: $workspace_name"
+            ;;
+    esac
+}
+
 # Show help
 help() {
     cat <<'EOF'
@@ -1333,6 +1447,10 @@ USAGE:
   bj write daily      Switch to daily log mode
   bj write monthly    Switch to monthly log mode
   bj write future     Switch to future log mode
+  bj workspace        Show current workspace
+  bj workspace list   List all workspaces
+  bj workspace new <name>  Create new workspace
+  bj workspace <name> Switch to workspace (creates if doesn't exist)
 
 BULLETS:
   .  task     x  done      a  abandoned
@@ -1364,6 +1482,10 @@ EXAMPLES:
   bj write monthly    # Switch to monthly logs
   bj write future     # Switch to future log
   bj write daily      # Switch back to daily logs
+  bj workspace        # Show current workspace
+  bj workspace list   # List all workspaces
+  bj workspace work   # Switch to work workspace
+  bj workspace new personal  # Create personal workspace
 EOF
 }
 
@@ -1444,6 +1566,10 @@ case "$1" in
             exit 1
         fi
         write_mode "$2"
+        exit 0
+        ;;
+    workspace)
+        workspace_cmd "${2:-}" "${3:-}"
         exit 0
         ;;
     .)
